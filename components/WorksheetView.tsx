@@ -24,6 +24,10 @@ export const WorksheetView: React.FC<WorksheetViewProps> = ({ worksheet, theme, 
   const isCreative = theme === ThemeType.CREATIVE;
   const isClassic = theme === ThemeType.CLASSIC;
   
+  // High School/University levels should be more professional and dense
+  const isProfessionalLevel = worksheet.gradeLevel === 'High School' || worksheet.gradeLevel === 'University';
+  const isClassicProfessional = isClassic && isProfessionalLevel;
+
   // Logic helpers
   const getQuestionLength = (q: Question) => {
     let len = q.question.length;
@@ -48,10 +52,17 @@ export const WorksheetView: React.FC<WorksheetViewProps> = ({ worksheet, theme, 
 
   const canUseDoubleColumns = isCreative && drillItems.every(q => q.correctAnswer.length < 15);
 
+  // Responsive font sizes based on theme and level
+  const titleSizeClass = isCreative ? 'text-6xl text-center' : (isClassicProfessional ? 'text-2xl font-bold' : 'text-3xl font-black');
+  const questionSizeClass = isCreative ? 'text-xl' : (isClassicProfessional ? 'text-base font-semibold' : 'text-lg font-bold');
+  const optionSizeClass = isCreative ? 'text-lg' : (isClassicProfessional ? 'text-xs' : 'text-sm');
+  const sectionSpacingClass = isClassicProfessional ? 'space-y-6' : 'space-y-12';
+  const itemSpacingClass = isClassicProfessional ? 'space-y-4' : 'space-y-10';
+
   return (
     <div 
       id="worksheet-content" 
-      className={`max-w-[210mm] mx-auto bg-white p-[12mm] shadow-lg min-h-[297mm] relative transition-all duration-500 overflow-hidden ${isCreative ? 'font-handwriting-body' : 'font-sans border border-slate-200'}`}
+      className={`max-w-[210mm] mx-auto bg-white ${isClassicProfessional ? 'p-[10mm]' : 'p-[12mm]'} shadow-lg min-h-[297mm] relative transition-all duration-500 overflow-hidden ${isCreative ? 'font-handwriting-body' : 'font-sans border border-slate-200'}`}
     >
       
       {/* Cutting Guide Border */}
@@ -76,16 +87,16 @@ export const WorksheetView: React.FC<WorksheetViewProps> = ({ worksheet, theme, 
       )}
 
       {/* Header */}
-      <div className="mb-10 relative z-10">
+      <div className={`${isClassicProfessional ? 'mb-6' : 'mb-10'} relative z-10`}>
         <h1 
           contentEditable={isClassic}
           suppressContentEditableWarning={true}
-          className={`${isCreative ? 'font-handwriting-header text-6xl text-center' : 'text-4xl font-black text-left outline-none hover:bg-slate-50'} text-slate-900 leading-tight border-b-4 border-slate-100 pb-6`}
+          className={`${isCreative ? 'font-handwriting-header' : 'font-sans text-left outline-none hover:bg-slate-50'} ${titleSizeClass} text-slate-900 leading-tight border-b-4 border-slate-100 ${isClassicProfessional ? 'pb-2' : 'pb-6'}`}
         >
           {worksheet.title || "Homework Hero Worksheet"}
         </h1>
         
-        <div className="flex justify-between items-center mt-6 px-4">
+        <div className={`flex justify-between items-center ${isClassicProfessional ? 'mt-3' : 'mt-6'} px-4`}>
           <div className="flex items-center gap-6">
             <div className={`px-3 py-1 text-[10px] font-black tracking-widest uppercase rounded-full shadow-sm ${isCreative ? 'bg-yellow-400 text-yellow-900' : 'bg-blue-600 text-white'}`}>
               Homework Hero v2.5
@@ -103,22 +114,22 @@ export const WorksheetView: React.FC<WorksheetViewProps> = ({ worksheet, theme, 
         </div>
 
         {isClassic && (
-          <div className="mt-8 flex justify-between items-end border-t border-slate-100 pt-4">
+          <div className={`${isClassicProfessional ? 'mt-4' : 'mt-8'} flex justify-between items-end border-t border-slate-100 pt-4`}>
              <div className="flex flex-col gap-1 w-2/3">
                 <span className="text-[9px] uppercase font-bold text-slate-400 tracking-widest">Student Name</span>
-                <div className="w-full border-b-2 border-slate-200 pb-1 text-slate-400 text-sm italic">
+                <div className={`w-full border-b-2 border-slate-200 pb-1 text-slate-400 ${isClassicProfessional ? 'text-xs' : 'text-sm'} italic`}>
                    {showKey ? <span className="text-red-500 font-bold uppercase not-italic">Answer Key Edition</span> : "Type or write name here..."}
                 </div>
              </div>
              <div className="flex flex-col gap-1 w-1/4">
                 <span className="text-[9px] uppercase font-bold text-slate-400 tracking-widest">Completion Date</span>
-                <div className="w-full border-b-2 border-slate-200 pb-1 text-slate-400 text-sm">____ / ____ / 20__</div>
+                <div className={`w-full border-b-2 border-slate-200 pb-1 text-slate-400 ${isClassicProfessional ? 'text-xs' : 'text-sm'}`}>____ / ____ / 20__</div>
              </div>
           </div>
         )}
       </div>
 
-      <div className="relative z-10 px-4 space-y-12">
+      <div className={`relative z-10 px-4 ${sectionSpacingClass}`}>
         {/* SECTION: DRILLS */}
         {(drillItems.length > 0 || specialDrills.length > 0) && (
           <div className="space-y-6">
@@ -129,7 +140,7 @@ export const WorksheetView: React.FC<WorksheetViewProps> = ({ worksheet, theme, 
               {drillItems.map((q, idx) => (
                 <div key={q.id} className="relative group">
                   <div className="flex items-center gap-4">
-                     <DraggableLineRow text={q.correctAnswer.split(' ')[0]} isSmall={canUseDoubleColumns} />
+                     <DraggableLineRow text={q.correctAnswer.split(' ')[0]} isSmall={canUseDoubleColumns || isClassicProfessional} />
                      {showKey && <span className="text-red-500 font-bold absolute left-24 bottom-2 text-xl">{q.correctAnswer}</span>}
                   </div>
                 </div>
@@ -137,8 +148,8 @@ export const WorksheetView: React.FC<WorksheetViewProps> = ({ worksheet, theme, 
             </div>
 
             {specialDrills.map((q) => (
-              <div key={q.id} className="mt-8">
-                <div className={`${isCreative ? 'p-0' : 'p-6 bg-slate-50 rounded-2xl border-2 border-slate-100'}`}>
+              <div key={q.id} className={`${isClassicProfessional ? 'mt-4' : 'mt-8'}`}>
+                <div className={`${isCreative ? 'p-0' : (isClassicProfessional ? 'p-3 bg-slate-50/50' : 'p-6 bg-slate-50')} rounded-2xl border-2 border-slate-100`}>
                   {(isCreative || showDoodles) ? (
                     <SketchyBorderBox className="bg-slate-50/30">
                       <p className={`${isCreative ? 'font-handwriting-header text-2xl' : 'text-lg font-bold'} mb-4 text-slate-600`}>Symbol Practice Area:</p>
@@ -149,9 +160,9 @@ export const WorksheetView: React.FC<WorksheetViewProps> = ({ worksheet, theme, 
                     </SketchyBorderBox>
                   ) : (
                     <div className="relative">
-                      <p className="text-sm font-black uppercase text-slate-400 tracking-widest mb-4">Precision Drill: {q.question}</p>
-                      <p className="text-3xl tracking-[0.6em] text-slate-300 select-none mb-6">{q.correctAnswer}</p>
-                      <div className="h-10 border-b-2 border-dashed border-slate-200">
+                      <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-2">Precision Drill: {q.question}</p>
+                      <p className={`${isClassicProfessional ? 'text-xl' : 'text-3xl'} tracking-[0.6em] text-slate-300 select-none mb-4`}>{q.correctAnswer}</p>
+                      <div className={`${isClassicProfessional ? 'h-6' : 'h-10'} border-b-2 border-dashed border-slate-200`}>
                          {showKey && <span className="text-red-500 font-bold text-xl">{q.correctAnswer}</span>}
                       </div>
                     </div>
@@ -164,20 +175,20 @@ export const WorksheetView: React.FC<WorksheetViewProps> = ({ worksheet, theme, 
 
         {/* SECTION: ASSESSMENT */}
         {interactiveItems.length > 0 && (
-          <div className="space-y-8">
-            {(isCreative || showDoodles) ? <HandDrawnDivider label="Quick Assessment" /> : <h2 className="text-2xl font-black text-slate-800 border-l-4 border-blue-600 pl-4 py-1">Knowledge Check</h2>}
+          <div className={`${isClassicProfessional ? 'space-y-4' : 'space-y-8'}`}>
+            {(isCreative || showDoodles) ? <HandDrawnDivider label="Quick Assessment" /> : <h2 className={`${isClassicProfessional ? 'text-base' : 'text-2xl'} font-black text-slate-800 border-l-4 border-blue-600 pl-4 py-1`}>Knowledge Check</h2>}
             
-            <div className="space-y-10">
+            <div className={itemSpacingClass}>
               {interactiveItems.map((q, idx) => {
                 const isLong = isLongQuestion(q);
                 return (
                   <div key={q.id} className={`flex flex-col gap-4 ${isLong ? 'col-span-full' : ''}`}>
                     <div className="flex items-start gap-4">
-                      {(isCreative || showDoodles) ? <QuestionIcon type={q.type} index={idx} /> : <span className="font-black text-slate-400 text-lg">{idx + 1}.</span>}
+                      {(isCreative || showDoodles) ? <QuestionIcon type={q.type} index={idx} /> : <span className={`font-black text-slate-400 ${isClassicProfessional ? 'text-sm' : 'text-lg'}`}>{idx + 1}.</span>}
                       <p 
                         contentEditable={isClassic} 
                         suppressContentEditableWarning={true}
-                        className={`text-xl font-bold leading-relaxed outline-none ${isCreative ? 'font-handwriting-body' : 'text-slate-900 hover:bg-slate-50'}`}
+                        className={`${questionSizeClass} leading-relaxed outline-none ${isCreative ? 'font-handwriting-body' : 'text-slate-900 hover:bg-slate-50'}`}
                       >
                         {q.question}
                         {q.isChallenge && (isCreative || showDoodles) && <DoodleStar className="inline-block ml-2 w-5 h-5 -mt-2" />}
@@ -185,17 +196,17 @@ export const WorksheetView: React.FC<WorksheetViewProps> = ({ worksheet, theme, 
                     </div>
                     
                     {q.type === QuestionType.MCQ && (
-                      <div className={`grid gap-4 ml-12 ${getMcqGridCols(q.options)}`}>
+                      <div className={`grid gap-2 ml-12 ${getMcqGridCols(q.options)}`}>
                         {q.options?.map((opt, i) => (
                           <div key={i} className="flex items-center gap-3 group">
-                            <div className={`w-6 h-6 flex-shrink-0 border-2 ${isCreative ? 'border-slate-300 rotate-2' : 'border-slate-400 rounded-md'} flex items-center justify-center ${showKey && opt === q.correctAnswer ? 'bg-red-500 border-red-500' : ''}`}>
+                            <div className={`${isClassicProfessional ? 'w-4 h-4' : 'w-6 h-6'} flex-shrink-0 border-2 ${isCreative ? 'border-slate-300 rotate-2' : 'border-slate-400 rounded-md'} flex items-center justify-center ${showKey && opt === q.correctAnswer ? 'bg-red-500 border-red-500' : ''}`}>
                                {isCreative && !showKey && <span className="text-[10px] text-slate-300 font-bold">{String.fromCharCode(65 + i)}</span>}
-                               {showKey && opt === q.correctAnswer && <span className="text-white text-[10px] font-bold">X</span>}
+                               {showKey && opt === q.correctAnswer && <span className="text-white text-[8px] font-bold">X</span>}
                             </div>
                             <span 
                               contentEditable={isClassic} 
                               suppressContentEditableWarning={true}
-                              className={`text-lg leading-tight transition-colors outline-none ${showKey && opt === q.correctAnswer ? 'text-red-600 font-bold' : 'opacity-80 group-hover:opacity-100 hover:bg-slate-50'}`}
+                              className={`${optionSizeClass} leading-tight transition-colors outline-none ${showKey && opt === q.correctAnswer ? 'text-red-600 font-bold' : 'opacity-80 group-hover:opacity-100 hover:bg-slate-50'}`}
                             >
                               {opt}
                             </span>
@@ -207,8 +218,8 @@ export const WorksheetView: React.FC<WorksheetViewProps> = ({ worksheet, theme, 
                     {q.type === QuestionType.TF && (
                       <div className="flex gap-12 ml-12">
                          {['True', 'False'].map((v) => (
-                           <span key={v} className={`flex items-center gap-4 text-lg italic font-bold ${showKey && v === q.correctAnswer ? 'text-red-600' : 'text-slate-600'}`}>
-                             <div className={`w-8 h-8 border-2 ${isCreative ? 'border-slate-200 rotate-3' : 'border-slate-300 rounded-lg'} flex items-center justify-center text-xs ${showKey && v === q.correctAnswer ? 'bg-red-500 border-red-500 text-white opacity-100 shadow-sm' : 'opacity-50'}`}>
+                           <span key={v} className={`flex items-center gap-4 ${isClassicProfessional ? 'text-sm' : 'text-lg'} italic font-bold ${showKey && v === q.correctAnswer ? 'text-red-600' : 'text-slate-600'}`}>
+                             <div className={`${isClassicProfessional ? 'w-6 h-6' : 'w-8 h-8'} border-2 ${isCreative ? 'border-slate-200 rotate-3' : 'border-slate-300 rounded-lg'} flex items-center justify-center text-[10px] ${showKey && v === q.correctAnswer ? 'bg-red-500 border-red-500 text-white opacity-100 shadow-sm' : 'opacity-50'}`}>
                                {showKey && v === q.correctAnswer ? '✓' : v.charAt(0)}
                              </div> 
                              {v}
@@ -225,21 +236,21 @@ export const WorksheetView: React.FC<WorksheetViewProps> = ({ worksheet, theme, 
 
         {/* SECTION: WRITING LAB */}
         {responseItems.length > 0 && (
-          <div className="space-y-12">
-            {(isCreative || showDoodles) ? <HandDrawnDivider label="Writing Lab" /> : <h2 className="text-2xl font-black text-slate-800 border-l-4 border-blue-600 pl-4 py-1">Written Assessment</h2>}
+          <div className={`${isClassicProfessional ? 'space-y-6' : 'space-y-12'}`}>
+            {(isCreative || showDoodles) ? <HandDrawnDivider label="Writing Lab" /> : <h2 className={`${isClassicProfessional ? 'text-base' : 'text-2xl'} font-black text-slate-800 border-l-4 border-blue-600 pl-4 py-1`}>Written Assessment</h2>}
             
-            <div className="space-y-20">
+            <div className={isClassicProfessional ? 'space-y-10' : 'space-y-20'}>
               {responseItems.map((q, idx) => {
                 const isTracingRequested = q.type === QuestionType.VOCABULARY || q.type === QuestionType.SENTENCE_DRILL;
                 return (
                   <div key={q.id} className="flex flex-col gap-6">
                     <div className="flex items-start gap-4">
-                      {(isCreative || showDoodles) ? <QuestionIcon type="CHALLENGE" index={idx} /> : <span className="font-black text-slate-400 text-lg">{idx + 1}.</span>}
+                      {(isCreative || showDoodles) ? <QuestionIcon type="CHALLENGE" index={idx} /> : <span className={`font-black text-slate-400 ${isClassicProfessional ? 'text-sm' : 'text-lg'}`}>{idx + 1}.</span>}
                       <div className="flex-1">
                         <p 
                           contentEditable={isClassic} 
                           suppressContentEditableWarning={true}
-                          className={`text-2xl font-black leading-tight outline-none ${isCreative ? 'font-handwriting-header text-slate-800' : 'text-slate-900 hover:bg-slate-50'}`}
+                          className={`${isClassicProfessional ? 'text-base font-bold' : 'text-2xl font-black'} leading-tight outline-none ${isCreative ? 'font-handwriting-header text-slate-800' : 'text-slate-900 hover:bg-slate-50'}`}
                         >
                           {q.question}
                         </p>
@@ -247,14 +258,14 @@ export const WorksheetView: React.FC<WorksheetViewProps> = ({ worksheet, theme, 
                       </div>
                     </div>
                     
-                    <div className={`ml-12 p-8 rounded-[2rem] border border-dashed transition-all relative min-h-64 ${isCreative ? 'bg-slate-50/20 border-slate-100' : 'bg-white border-slate-200 shadow-sm'}`}>
+                    <div className={`ml-12 ${isClassicProfessional ? 'p-4 min-h-32' : 'p-8 min-h-64'} rounded-[2rem] border border-dashed transition-all relative ${isCreative ? 'bg-slate-50/20 border-slate-100' : 'bg-white border-slate-200 shadow-sm'}`}>
                         {isTracingRequested && (
-                          <div className="flex flex-col gap-1 border-b-2 border-slate-100 pb-6 mb-8 relative">
+                          <div className={`flex flex-col gap-1 border-b-2 border-slate-100 ${isClassicProfessional ? 'pb-2 mb-4' : 'pb-6 mb-8'} relative`}>
                             <span className="text-[8px] font-black uppercase text-slate-300 tracking-[0.2em] mb-2">Reference Text</span>
                             <div 
                               contentEditable={isClassic} 
                               suppressContentEditableWarning={true}
-                              className={`text-4xl font-black text-slate-800 tracking-wide outline-none ${!isCreative ? 'font-sans hover:bg-slate-50' : ''}`}
+                              className={`${isClassicProfessional ? 'text-xl' : 'text-4xl'} font-black text-slate-800 tracking-wide outline-none ${!isCreative ? 'font-sans hover:bg-slate-50' : ''}`}
                             >
                               {q.correctAnswer}
                             </div>
@@ -273,9 +284,9 @@ export const WorksheetView: React.FC<WorksheetViewProps> = ({ worksheet, theme, 
                             </span>
                             {(isCreative || showDoodles) && <MarkerHighlight className="text-[10px] uppercase font-bold text-yellow-800 px-3">Ample Writing Space</MarkerHighlight>}
                           </div>
-                          <div className="space-y-12 relative">
-                            {[...Array(isTracingRequested ? 3 : 5)].map((_, i) => (
-                              <div key={i} className="border-b-2 border-slate-200/50 w-full relative h-4 dotted-line">
+                          <div className={`space-y-8 relative`}>
+                            {[...Array(isTracingRequested ? 2 : (isClassicProfessional ? 4 : 5))].map((_, i) => (
+                              <div key={i} className={`border-b-2 border-slate-200/50 w-full relative h-4 dotted-line`}>
                                 <div className="absolute -top-8 left-0 text-[8px] text-slate-100 font-bold uppercase tracking-widest opacity-40">Line {i + 1}</div>
                               </div>
                             ))}
