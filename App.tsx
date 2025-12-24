@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { AppMode, Worksheet, ThemeType, QuestionType } from './types';
-import { generateWorksheet, generateTopicScopeSuggestion } from './services/geminiService';
+import { generateWorksheet, generateTopicScopeSuggestion, analyzeSourceMaterial } from './services/geminiService';
 import { WorksheetView } from './components/WorksheetView';
 import { QuizView } from './components/QuizView';
 import { MarkerHighlight } from './components/HandwritingElements';
@@ -50,7 +50,9 @@ import {
   FastForward,
   FileJson,
   Lock,
-  Award
+  Award,
+  Search,
+  FileStack
 } from 'lucide-react';
 
 const WorksheetSkeleton: React.FC<{ theme: ThemeType }> = ({ theme }) => {
@@ -100,6 +102,7 @@ const App: React.FC = () => {
   const [savedWorksheets, setSavedWorksheets] = useState<Worksheet[]>([]);
   const [loading, setLoading] = useState(false);
   const [isGeneratingScope, setIsGeneratingScope] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [lastSavedTime, setLastSavedTime] = useState<number | null>(null);
   const [showTeacherKey, setShowTeacherKey] = useState(false);
   
@@ -110,6 +113,7 @@ const App: React.FC = () => {
     difficulty: string;
     language: string;
     rawText: string;
+    pageCount: number;
     questionCounts: Record<QuestionType, number>;
   }>({
     topic: '',
@@ -118,6 +122,7 @@ const App: React.FC = () => {
     difficulty: 'Medium',
     language: 'English',
     rawText: '',
+    pageCount: 1,
     questionCounts: {
       [QuestionType.MCQ]: 2,
       [QuestionType.TF]: 2,
@@ -212,6 +217,25 @@ const App: React.FC = () => {
     };
   }, [isCameraActive]);
 
+  const triggerAnalysis = async (fData?: { data: string; mimeType: string }, rText?: string) => {
+    if (!fData && !rText) return;
+    setIsAnalyzing(true);
+    try {
+      const result = await analyzeSourceMaterial(fData, rText);
+      if (result) {
+        setFormData(prev => ({
+          ...prev,
+          customTitle: result.suggestedTitle,
+          topic: result.suggestedTopicScope
+        }));
+      }
+    } catch (e) {
+      console.error("Analysis failed", e);
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
   const saveToStorage = (list: Worksheet[]) => {
     localStorage.setItem('helen_saved_worksheets', JSON.stringify(list));
     setSavedWorksheets(list);
@@ -257,6 +281,7 @@ const App: React.FC = () => {
         difficulty: 'Medium',
         language: 'English',
         rawText: '',
+        pageCount: 1,
         questionCounts: {
           [QuestionType.MCQ]: 2,
           [QuestionType.TF]: 2,
@@ -281,12 +306,14 @@ const App: React.FC = () => {
       reader.onloadend = () => {
         const result = reader.result as string;
         const base64String = result.split(',')[1];
-        setFileData({ 
+        const newFileData = { 
           data: base64String, 
           mimeType: file.type, 
           name: file.name,
           preview: file.type.startsWith('image/') ? result : undefined
-        });
+        };
+        setFileData(newFileData);
+        triggerAnalysis(newFileData, formData.rawText);
       };
       reader.readAsDataURL(file);
     }
@@ -303,13 +330,15 @@ const App: React.FC = () => {
         ctx.drawImage(video, 0, 0);
         const dataUrl = canvas.toDataURL('image/jpeg');
         const base64String = dataUrl.split(',')[1];
-        setFileData({
+        const newFileData = {
           data: base64String,
           mimeType: 'image/jpeg',
           name: `camera_capture_${Date.now()}.jpg`,
           preview: dataUrl
-        });
+        };
+        setFileData(newFileData);
         setIsCameraActive(false);
+        triggerAnalysis(newFileData, formData.rawText);
       }
     }
   };
@@ -351,6 +380,7 @@ const App: React.FC = () => {
         difficulty: formData.difficulty,
         language: formData.language,
         questionCounts: formData.questionCounts,
+        pageTarget: formData.pageCount,
         fileData: fileData || undefined,
         rawText: formData.rawText || undefined,
       });
@@ -740,6 +770,11 @@ const App: React.FC = () => {
                                 <div className="flex items-center justify-center gap-3 p-4 bg-green-50 text-green-700 rounded-2xl border border-green-100 font-bold">
                                   <CheckCircle2 className="w-5 h-5" /> <span>Analysis Complete</span>
                                 </div>
+                                {isAnalyzing && (
+                                  <div className="flex items-center justify-center gap-2 p-3 bg-blue-50 text-blue-600 rounded-xl font-bold animate-pulse">
+                                    <Search className="w-4 h-4" /> AI is deconstructing content...
+                                  </div>
+                                )}
                               </div>
                             )}
                           </div>
@@ -760,6 +795,7 @@ const App: React.FC = () => {
                             className="w-full p-6 sm:p-10 rounded-[1.5rem] sm:rounded-[2.5rem] bg-slate-50 border-2 border-slate-100 focus:border-yellow-400 focus:bg-white focus:outline-none transition-all text-base sm:text-xl min-h-[250px] sm:min-h-[350px] shadow-inner font-medium" 
                             value={formData.rawText} 
                             onChange={(e) => setFormData({...formData, rawText: e.target.value})} 
+                            onBlur={() => triggerAnalysis(fileData || undefined, formData.rawText)}
                           />
                         </div>
                       )}
@@ -776,7 +812,10 @@ const App: React.FC = () => {
                           <div className="space-y-6">
                              <div className="space-y-3">
                                 <label className="block text-xs font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Display Title</label>
-                                <input type="text" placeholder="e.g. Unit 4: Cellular Respiration" className="w-full p-4 sm:p-6 rounded-[1.5rem] sm:rounded-[2rem] bg-slate-50 border-2 border-slate-100 focus:border-yellow-400 outline-none font-bold text-slate-700 transition-all text-xl" value={formData.customTitle} onChange={(e) => setFormData({...formData, customTitle: e.target.value})} />
+                                <div className="relative">
+                                  <input type="text" placeholder="e.g. Unit 4: Cellular Respiration" className={`w-full p-4 sm:p-6 rounded-[1.5rem] sm:rounded-[2rem] bg-slate-50 border-2 outline-none font-bold text-slate-700 transition-all text-xl ${isAnalyzing ? 'border-blue-200 bg-blue-50/20' : 'border-slate-100 focus:border-yellow-400'}`} value={formData.customTitle} onChange={(e) => setFormData({...formData, customTitle: e.target.value})} />
+                                  {isAnalyzing && <div className="absolute right-6 top-1/2 -translate-y-1/2"><Loader2 className="w-5 h-5 text-blue-500 animate-spin" /></div>}
+                                </div>
                              </div>
 
                              <div className="space-y-3">
@@ -788,17 +827,21 @@ const App: React.FC = () => {
                                     className="flex items-center gap-2 px-4 py-2 bg-yellow-50 text-yellow-700 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-yellow-100 disabled:opacity-50 transition-all shadow-sm active:scale-95"
                                   >
                                     {isGeneratingScope ? <Loader2 className="w-3 h-3 animate-spin" /> : <Wand2 className="w-3 h-3" />}
-                                    AI Generate Scope
+                                    AI Refine Scope
                                   </button>
                                 </div>
-                                <textarea 
-                                  required 
-                                  placeholder="Focus area? e.g. 'Photosynthesis with a focus on light-dependent reactions'" 
-                                  className={`w-full p-6 sm:p-10 rounded-[1.5rem] sm:rounded-[2.5rem] bg-slate-50 border-2 focus:bg-white focus:outline-none transition-all text-base sm:text-xl min-h-[150px] sm:min-h-[200px] font-medium ${!formData.topic.trim() ? 'border-red-100' : 'border-slate-100 focus:border-yellow-400'}`} 
-                                  value={formData.topic} 
-                                  onChange={(e) => setFormData({...formData, topic: e.target.value})} 
-                                />
+                                <div className="relative">
+                                  <textarea 
+                                    required 
+                                    placeholder="Focus area? e.g. 'Photosynthesis with a focus on light-dependent reactions'" 
+                                    className={`w-full p-6 sm:p-10 rounded-[1.5rem] sm:rounded-[2.5rem] bg-slate-50 border-2 focus:bg-white focus:outline-none transition-all text-base sm:text-xl min-h-[150px] sm:min-h-[200px] font-medium ${!formData.topic.trim() ? 'border-red-100' : isAnalyzing ? 'border-blue-200 bg-blue-50/20' : 'border-slate-100 focus:border-yellow-400'}`} 
+                                    value={formData.topic} 
+                                    onChange={(e) => setFormData({...formData, topic: e.target.value})} 
+                                  />
+                                  {isAnalyzing && <div className="absolute right-8 top-8"><Loader2 className="w-6 h-6 text-blue-500 animate-spin" /></div>}
+                                </div>
                                 {!formData.topic.trim() && <p className="text-[10px] text-red-400 font-bold ml-4 uppercase tracking-widest">Topic Scope is mandatory</p>}
+                                {isAnalyzing && <p className="text-[10px] text-blue-400 font-bold ml-4 uppercase tracking-widest animate-pulse">Auto-filling from scan...</p>}
                              </div>
                           </div>
                         </div>
@@ -815,9 +858,26 @@ const App: React.FC = () => {
                           </div>
 
                           <div className="mb-10 p-4 sm:p-6 bg-slate-50 rounded-[1.5rem] sm:rounded-[2.5rem] border border-slate-100">
-                            <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                              <Zap className="w-4 h-4 text-yellow-500" /> Quick Mix Presets
-                            </h4>
+                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
+                              <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                                <Zap className="w-4 h-4 text-yellow-500" /> Quick Mix Presets
+                              </h4>
+                              <div className="flex items-center gap-3 bg-white p-2 px-4 rounded-2xl border border-slate-100 shadow-sm">
+                                <FileStack className="w-4 h-4 text-blue-500" />
+                                <span className="text-xs font-bold text-slate-600">Page Target:</span>
+                                <div className="flex items-center gap-2">
+                                  {[1, 2, 3, 5].map(p => (
+                                    <button 
+                                      key={p} 
+                                      onClick={() => setFormData({...formData, pageCount: p})}
+                                      className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-black transition-all ${formData.pageCount === p ? 'bg-blue-600 text-white shadow-md' : 'bg-slate-50 text-slate-400 hover:bg-slate-100'}`}
+                                    >
+                                      {p}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
                             <div className="flex flex-wrap gap-2 sm:gap-4">
                               {["Classic Exam", "Skill Practice", "Mixed Hero"].map(preset => (
                                 <button key={preset} onClick={() => applyPreset(preset)} className="px-4 py-2 sm:px-6 sm:py-3 bg-white border-2 border-slate-100 rounded-xl sm:rounded-2xl font-bold text-xs sm:text-sm text-slate-600 hover:border-yellow-400 hover:text-yellow-600 transition-all active:scale-95 shadow-sm">
@@ -931,16 +991,16 @@ const App: React.FC = () => {
                                  <FastForward className="w-4 h-4" /> Skip
                                </button>
                              )}
-                            <button onClick={nextStep} disabled={currentStep === 3 && !formData.topic.trim()} className={`flex-1 sm:flex-none flex items-center justify-center gap-3 px-10 sm:px-14 py-3 sm:py-4 bg-white text-slate-800 rounded-xl sm:rounded-2xl font-black border-2 border-slate-100 hover:border-yellow-400 transition-all disabled:opacity-50 shadow-sm active:scale-95`}>
-                              Continue <ArrowRight className="w-5 h-5 sm:w-6 sm:h-6" />
+                            <button onClick={nextStep} disabled={(currentStep === 3 && !formData.topic.trim()) || isAnalyzing} className={`flex-1 sm:flex-none flex items-center justify-center gap-3 px-10 sm:px-14 py-3 sm:py-4 bg-white text-slate-800 rounded-xl sm:rounded-2xl font-black border-2 border-slate-100 hover:border-yellow-400 transition-all disabled:opacity-50 shadow-sm active:scale-95`}>
+                              {isAnalyzing ? <><Loader2 className="w-5 h-5 animate-spin" /> Analyzing...</> : <>Continue <ArrowRight className="w-5 h-5 sm:w-6 sm:h-6" /></>}
                             </button>
                           </div>
                         ) : (
-                          <button onClick={handleGenerate} disabled={totalQuestions === 0} className={`w-full sm:w-auto flex items-center justify-center gap-4 px-12 sm:px-16 py-4 sm:py-5 rounded-[1.5rem] sm:rounded-[2.5rem] font-black text-lg sm:text-xl transition-all active:scale-95 ${totalQuestions === 0 ? 'bg-slate-200 text-slate-400 cursor-not-allowed opacity-50 shadow-none' : 'bg-yellow-400 text-yellow-900 shadow-xl hover:bg-yellow-500 animate-pulse hover:animate-none'}`}>
+                          <button onClick={handleGenerate} disabled={totalQuestions === 0 || isAnalyzing} className={`w-full sm:w-auto flex items-center justify-center gap-4 px-12 sm:px-16 py-4 sm:py-5 rounded-[1.5rem] sm:rounded-[2.5rem] font-black text-lg sm:text-xl transition-all active:scale-95 ${totalQuestions === 0 || isAnalyzing ? 'bg-slate-200 text-slate-400 cursor-not-allowed opacity-50 shadow-none' : 'bg-yellow-400 text-yellow-900 shadow-xl hover:bg-yellow-500 animate-pulse hover:animate-none'}`}>
                             <Sparkles className="w-6 h-6 sm:w-7 sm:h-7" /> Build Final Sheet
                           </button>
                         )}
-                        {lastSavedTime && (
+                        {lastSavedTime && !isAnalyzing && (
                           <span className="text-[8px] sm:text-[9px] font-black text-slate-300 uppercase tracking-widest flex items-center gap-1">
                             <CheckCircle2 className="w-2.5 h-2.5" /> Progress Saved
                           </span>

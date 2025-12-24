@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 import { Worksheet, QuestionType } from "../types";
 
@@ -12,6 +13,67 @@ export interface GenerationOptions {
   questionCounts: Record<string, number>;
   rawText?: string;
   fileData?: { data: string; mimeType: string };
+  pageTarget?: number;
+}
+
+export interface AnalysisResult {
+  suggestedTitle: string;
+  suggestedTopicScope: string;
+}
+
+export async function analyzeSourceMaterial(
+  fileData?: { data: string; mimeType: string },
+  rawText?: string
+): Promise<AnalysisResult | null> {
+  const parts: any[] = [];
+  
+  if (fileData) {
+    parts.push({
+      inlineData: {
+        data: fileData.data,
+        mimeType: fileData.mimeType
+      }
+    });
+  }
+
+  const promptText = `
+    You are an expert academic analyst. 
+    Analyze the provided content (text or image) and suggest a formal worksheet title and a specific topic scope.
+    
+    ${rawText ? `Additional Context: ${rawText}` : ''}
+    
+    Return the result in JSON format:
+    {
+      "suggestedTitle": "A concise, academic title (e.g., 'Introduction to Quantum Mechanics')",
+      "suggestedTopicScope": "A 1-2 sentence description of exactly what sub-topics are covered."
+    }
+  `;
+  
+  parts.push({ text: promptText });
+
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: { parts },
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            suggestedTitle: { type: Type.STRING },
+            suggestedTopicScope: { type: Type.STRING }
+          },
+          required: ["suggestedTitle", "suggestedTopicScope"]
+        }
+      }
+    });
+
+    const data = JSON.parse(response.text || '{}');
+    return data as AnalysisResult;
+  } catch (error) {
+    console.error("Failed to analyze source material", error);
+    return null;
+  }
 }
 
 export async function generateTopicScopeSuggestion(title: string, ageGroup: string): Promise<string> {
@@ -39,7 +101,7 @@ export async function generateTopicScopeSuggestion(title: string, ageGroup: stri
 }
 
 export async function generateWorksheet(options: GenerationOptions): Promise<Worksheet> {
-  const { topic, customTitle, gradeLevel, difficulty, language, questionCounts, rawText, fileData } = options;
+  const { topic, customTitle, gradeLevel, difficulty, language, questionCounts, rawText, fileData, pageTarget = 1 } = options;
 
   let parts: any[] = [];
   
@@ -48,7 +110,7 @@ export async function generateWorksheet(options: GenerationOptions): Promise<Wor
     .map(([type, count]) => `- ${count} items of type ${type}`)
     .join('\n');
 
-  const isSeniorLevel = gradeLevel === 'High School' || gradeLevel === 'University';
+  const isSeniorLevel = gradeLevel === 'High School' || gradeLevel === 'University' || gradeLevel === 'University / College' || gradeLevel === 'Professional / Adult';
 
   const systemInstruction = `
     You are an elite academic curriculum designer. Your goal is to produce university-entrance level assessment materials.
@@ -57,16 +119,17 @@ export async function generateWorksheet(options: GenerationOptions): Promise<Wor
     - Grade Level: ${gradeLevel}
     - Difficulty Level: ${difficulty}
     - Language: ${language}
-    - For ${gradeLevel}+: The assessment must be academically rigorous, intellectually demanding, and factually flawless.
+    - Target Length: ${pageTarget} Page(s). Ensure the complexity and depth of the items scale to fill this volume.
+    - For Senior levels: The assessment must be academically rigorous, intellectually demanding, and factually flawless.
     - Use high-level academic vocabulary and complex sentence structures in the questions.
     - Focus on synthesis, evaluation, and critical analysis rather than simple recall.
 
-    STRICT SENIOR LEVEL RULES (High School & University):
+    STRICT SENIOR LEVEL RULES:
     1. NO TRACING: Never generate tasks that involve tracing letters or words.
-    2. NO COPYING: Never ask the student to "copy the question" or "rewrite the sentence exactly". This is infantile for senior levels.
+    2. NO COPYING: Never ask the student to "copy the question" or "rewrite the sentence exactly".
     3. TRANSFORMATION: If "Drill" types are requested for senior levels, transform them into "Formula Application" or "Data Interpretation" tasks.
-    4. NO JUVENILE CONTENT: Remove all mentions of "fun", "games", or "puzzles". This is a formal examination/assignment.
-    5. Factual Accuracy: All information must be strictly accurate. Cite specific scientific laws, historical dates, or literary theories where applicable.
+    4. NO JUVENILE CONTENT: Remove all mentions of "fun", "games", or "puzzles".
+    5. Factual Accuracy: All information must be strictly accurate.
 
     TITLE:
     - Title should be: "${customTitle || 'Advanced Academic Assessment: ' + topic}"
@@ -83,6 +146,9 @@ ${countInstruction}
 
     COMPLEXITY MARKER:
     Set "isChallenge: true" for items that require abstract reasoning or cross-disciplinary knowledge.
+
+    OUTPUT VOLUME:
+    You are requested to target ${pageTarget} page(s) of content. If more than 1 page is requested, make the questions more comprehensive, add detailed preambles to sections, and ensure explanations are thorough.
   `;
 
   parts.push({ text: systemInstruction });
@@ -103,7 +169,7 @@ ${countInstruction}
 
   parts.push({ text: `PRIMARY FOCUS AREA: ${topic}` });
 
-  // Always use Pro for Senior Level for maximum "Perplexity" / Reasoning depth
+  // Use Pro for Senior Level or if file data is complex
   const modelToUse = isSeniorLevel ? 'gemini-3-pro-preview' : 'gemini-3-flash-preview';
 
   const response = await ai.models.generateContent({

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Worksheet, QuestionType, ThemeType } from '../types';
 import { MarkerHighlight } from './HandwritingElements';
-import { CheckCircle, XCircle, RefreshCw, BarChart3, Clock, AlertCircle } from 'lucide-react';
+import { CheckCircle, XCircle, RefreshCw, BarChart3, Clock, AlertCircle, ArrowLeft } from 'lucide-react';
 
 interface QuizAttempt {
   score: number;
@@ -101,6 +101,7 @@ export const QuizView: React.FC<QuizViewProps> = ({ worksheet, theme, onExit }) 
       setSubmitted(false);
       setScore(0);
       localStorage.removeItem(progressKey);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
@@ -192,7 +193,7 @@ export const QuizView: React.FC<QuizViewProps> = ({ worksheet, theme, onExit }) 
               isCreative 
                 ? 'bg-white border-slate-100 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.05)]' 
                 : 'bg-white border-slate-200'
-            }`}>
+            } ${submitted && !isCorrect ? 'border-red-200 bg-red-50/10' : ''}`}>
               <div className="flex items-start gap-4 mb-6">
                 <span className={`flex-shrink-0 w-10 h-10 rounded-2xl flex items-center justify-center font-black text-lg ${
                   isCreative ? 'bg-yellow-100 text-yellow-700 rotate-3' : 'bg-slate-100 text-slate-600'
@@ -343,32 +344,50 @@ export const QuizView: React.FC<QuizViewProps> = ({ worksheet, theme, onExit }) 
             Submit All Answers
           </button>
         ) : (
-          <div className="w-full max-w-md bg-white rounded-[2rem] p-6 shadow-2xl border border-slate-100 animate-in fade-in slide-in-from-bottom-8 duration-500">
-            <div className="flex justify-between items-center mb-6">
-              <h4 className="flex items-center gap-2 font-black text-slate-800 text-xs uppercase tracking-[0.2em]">
-                <BarChart3 className="w-4 h-4 text-blue-500" /> Session History
-              </h4>
-              <button onClick={clearHistory} className="text-[10px] font-black uppercase text-slate-300 hover:text-red-500 transition-colors">Wipe Archive</button>
-            </div>
-            <div className="space-y-3 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
-              {history.map((attempt, i) => (
-                <div key={i} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 group hover:border-blue-200 transition-all hover:bg-white">
-                  <div className="flex flex-col">
-                    <span className="text-xs font-black text-slate-700">Attempt {history.length - i}</span>
-                    <span className="flex items-center gap-1.5 text-[10px] text-slate-400 font-bold uppercase mt-1">
-                      <Clock className="w-3 h-3" /> {formatDate(attempt.date)}
-                    </span>
+          <div className="flex flex-col items-center gap-6 w-full max-w-md">
+            <button 
+              onClick={resetQuiz}
+              className={`w-full py-5 rounded-[2rem] text-xl font-black text-white shadow-xl transform transition hover:scale-105 active:scale-95 flex items-center justify-center gap-3 ${
+                isCreative ? 'bg-yellow-500 hover:bg-yellow-600' : 'bg-blue-600 hover:bg-blue-700'
+              }`}
+            >
+              <RefreshCw className="w-6 h-6" /> Retake This Quiz
+            </button>
+            
+            <div className="w-full bg-white rounded-[2rem] p-6 shadow-2xl border border-slate-100 animate-in fade-in slide-in-from-bottom-8 duration-500">
+              <div className="flex justify-between items-center mb-6">
+                <h4 className="flex items-center gap-2 font-black text-slate-800 text-xs uppercase tracking-[0.2em]">
+                  <BarChart3 className="w-4 h-4 text-blue-500" /> Session History
+                </h4>
+                <button onClick={clearHistory} className="text-[10px] font-black uppercase text-slate-300 hover:text-red-500 transition-colors">Wipe Archive</button>
+              </div>
+              <div className="space-y-3 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
+                {history.map((attempt, i) => (
+                  <div key={i} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 group hover:border-blue-200 transition-all hover:bg-white">
+                    <div className="flex flex-col">
+                      <span className="text-xs font-black text-slate-700">Attempt {history.length - i}</span>
+                      <span className="flex items-center gap-1.5 text-[10px] text-slate-400 font-bold uppercase mt-1">
+                        <Clock className="w-3 h-3" /> {formatDate(attempt.date)}
+                      </span>
+                    </div>
+                    <div className={`px-4 py-2 rounded-xl text-sm font-black shadow-sm ${
+                      (attempt.score / attempt.total) >= 0.8 ? 'bg-green-100 text-green-700' :
+                      (attempt.score / attempt.total) >= 0.5 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'
+                    }`}>
+                      {attempt.score} / {attempt.total}
+                    </div>
                   </div>
-                  <div className={`px-4 py-2 rounded-xl text-sm font-black shadow-sm ${
-                    (attempt.score / attempt.total) >= 0.8 ? 'bg-green-100 text-green-700' :
-                    (attempt.score / attempt.total) >= 0.5 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'
-                  }`}>
-                    {attempt.score} / {attempt.total}
-                  </div>
-                </div>
-              ))}
-              {history.length === 0 && <p className="text-center py-8 text-xs font-bold text-slate-300 uppercase tracking-widest">No previous attempts</p>}
+                ))}
+                {history.length === 0 && <p className="text-center py-8 text-xs font-bold text-slate-300 uppercase tracking-widest">No previous attempts</p>}
+              </div>
             </div>
+
+            <button 
+              onClick={onExit}
+              className="flex items-center gap-2 text-slate-400 hover:text-slate-600 font-black uppercase tracking-widest text-xs transition-colors"
+            >
+              <ArrowLeft className="w-4 h-4" /> Back to Worksheet
+            </button>
           </div>
         )}
       </div>
