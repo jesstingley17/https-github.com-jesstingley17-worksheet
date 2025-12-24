@@ -1,5 +1,7 @@
 {
-  "name": "Helen's Homework Hero",
+  "name": "Homework Hero",
   "description": "An interactive worksheet and quiz generator with a beautiful handwriting theme and advanced AI content generation.",
-  "requestFramePermissions": []
+  "requestFramePermissions": [
+    "camera"
+  ]
 }

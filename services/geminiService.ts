@@ -5,67 +5,70 @@ import { Worksheet, QuestionType } from "../types";
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 export interface GenerationOptions {
-  topic?: string;
+  topic: string; 
   gradeLevel: string;
-  numQuestions: number;
-  rawText?: string;
-  fileData?: { data: string; mimeType: string };
   difficulty: string;
   language: string;
+  questionCounts: Record<string, number>;
+  rawText?: string;
+  fileData?: { data: string; mimeType: string };
 }
 
 export async function generateWorksheet(options: GenerationOptions): Promise<Worksheet> {
-  const { topic, gradeLevel, numQuestions, rawText, fileData, difficulty, language } = options;
+  const { topic, gradeLevel, difficulty, language, questionCounts, rawText, fileData } = options;
 
-  let promptPrefix = "";
-  let contents: any[] = [];
+  let parts: any[] = [];
+  
+  const countInstruction = Object.entries(questionCounts)
+    .filter(([_, count]) => count > 0)
+    .map(([type, count]) => `- ${count} items of type ${type}`)
+    .join('\n');
+
+  const systemInstruction = `
+    You are Helen, a world-class educational content creator. 
+    Your mission is to generate a high-quality, engaging worksheet.
+    
+    RULES:
+    1. Grade Level: ${gradeLevel}
+    2. Difficulty: ${difficulty}
+    3. Language: ${language}
+    4. QUESTION MIX (Mandatory counts):
+${countInstruction}
+    
+    5. Types definition:
+       - MCQ: Multiple choice (4 options)
+       - TF: True/False
+       - SHORT_ANSWER: Open response
+       - VOCABULARY: Word definition and tracing
+       - CHARACTER_DRILL: Single character tracing/practice
+       - SYMBOL_DRILL: Math/Science symbol practice
+       - SENTENCE_DRILL: Full sentence tracing practice
+
+    6. Challenges: Mark complex items with "isChallenge: true".
+    7. Continuity: Synthesize all inputs into a single logical learning path.
+  `;
+
+  parts.push({ text: systemInstruction });
 
   if (fileData) {
-    promptPrefix = `Analyze the provided document/image and generate a high-quality academic worksheet based on its content.`;
-    contents = [
-      {
-        inlineData: fileData
-      },
-      {
-        text: `${promptPrefix} 
-        The worksheet should be for "${gradeLevel}" level with a "${difficulty}" difficulty in "${language}" language.
-        Include exactly ${numQuestions} items. 
-        Mix items between: MCQ, TF, CHARACTER_DRILL, SYMBOL_DRILL, SENTENCE_DRILL, SHORT_ANSWER, VOCABULARY.
-        Ensure some items are marked as "isChallenge: true".`
+    parts.push({ 
+      inlineData: {
+        data: fileData.data,
+        mimeType: fileData.mimeType
       }
-    ];
-  } else if (rawText) {
-    promptPrefix = `Create a worksheet based EXACTLY on the following content or questions provided by the user: 
-    ---
-    ${rawText}
-    ---`;
-    contents = [
-      {
-        text: `${promptPrefix}
-        Format this content into a beautiful worksheet for "${gradeLevel}" level. 
-        If the input is just notes, create questions from them. If the input is already questions, preserve them but format correctly.
-        Include exactly ${numQuestions} items if possible.
-        Difficulty: ${difficulty}. Language: ${language}.
-        Map items to: MCQ, TF, CHARACTER_DRILL, SYMBOL_DRILL, SENTENCE_DRILL, SHORT_ANSWER, VOCABULARY.`
-      }
-    ];
-  } else {
-    promptPrefix = `Generate a high-quality academic worksheet for the topic "${topic}".`;
-    contents = [
-      {
-        text: `${promptPrefix}
-        Suitable for "${gradeLevel}" level. 
-        Difficulty: ${difficulty}. Language: ${language}.
-        Include exactly ${numQuestions} items. 
-        Mix items between: MCQ, TF, CHARACTER_DRILL, SYMBOL_DRILL, SENTENCE_DRILL, SHORT_ANSWER, VOCABULARY.
-        Ensure some items are marked as "isChallenge: true".`
-      }
-    ];
+    });
+    parts.push({ text: "SCANNED DOCUMENT DATA: Analyze the attached image/PDF for primary facts." });
   }
+
+  if (rawText) {
+    parts.push({ text: `PASTED CONTENT: Use this text as source:\n---\n${rawText}\n---` });
+  }
+
+  parts.push({ text: `USER INSTRUCTIONS: ${topic}` });
 
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
-    contents: { parts: contents },
+    contents: { parts },
     config: {
       responseMimeType: "application/json",
       responseSchema: {
@@ -82,7 +85,7 @@ export async function generateWorksheet(options: GenerationOptions): Promise<Wor
                 id: { type: Type.STRING },
                 type: { 
                   type: Type.STRING,
-                  description: "Must be one of: MCQ, TF, SHORT_ANSWER, VOCABULARY, CHARACTER_DRILL, SYMBOL_DRILL, SENTENCE_DRILL"
+                  description: "Must be one of the specified types"
                 },
                 question: { type: Type.STRING },
                 options: { 
@@ -103,10 +106,10 @@ export async function generateWorksheet(options: GenerationOptions): Promise<Wor
   });
 
   try {
-    const data = JSON.parse(response.text);
+    const data = JSON.parse(response.text || '{}');
     return data as Worksheet;
   } catch (error) {
     console.error("Failed to parse Gemini response", error);
-    throw new Error("Failed to generate content. Please try again.");
+    throw new Error("Failed to generate content.");
   }
 }

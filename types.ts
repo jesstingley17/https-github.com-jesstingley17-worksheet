@@ -20,10 +20,12 @@ export interface Question {
 }
 
 export interface Worksheet {
+  id?: string;
   title: string;
   topic: string;
   gradeLevel: string;
   questions: Question[];
+  savedAt?: number;
 }
 
 export enum AppMode {

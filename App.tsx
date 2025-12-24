@@ -1,6 +1,6 @@
 
-import React, { useState, useRef } from 'react';
-import { AppMode, Worksheet, ThemeType, InputMethod } from './types';
+import React, { useState, useRef, useEffect } from 'react';
+import { AppMode, Worksheet, ThemeType, QuestionType } from './types';
 import { generateWorksheet } from './services/geminiService';
 import { WorksheetView } from './components/WorksheetView';
 import { QuizView } from './components/QuizView';
@@ -21,7 +21,20 @@ import {
   ChevronDown,
   ChevronUp,
   Globe,
-  Zap
+  Zap,
+  ArrowRight,
+  ArrowLeft,
+  CheckCircle2,
+  Save,
+  Trash2,
+  History,
+  Plus,
+  Minus,
+  Eye,
+  FileIcon,
+  X,
+  Camera,
+  RotateCcw
 } from 'lucide-react';
 
 const WorksheetSkeleton: React.FC<{ theme: ThemeType }> = ({ theme }) => {
@@ -65,52 +78,191 @@ const WorksheetSkeleton: React.FC<{ theme: ThemeType }> = ({ theme }) => {
 const App: React.FC = () => {
   const [mode, setMode] = useState<AppMode>(AppMode.GENERATOR);
   const [theme, setTheme] = useState<ThemeType>(ThemeType.CREATIVE);
-  const [inputMethod, setInputMethod] = useState<InputMethod>(InputMethod.PROMPT);
+  const [currentStep, setCurrentStep] = useState(1);
   const [worksheet, setWorksheet] = useState<Worksheet | null>(null);
+  const [savedWorksheets, setSavedWorksheets] = useState<Worksheet[]>([]);
   const [loading, setLoading] = useState(false);
-  const [showAdvanced, setShowAdvanced] = useState(false);
   
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    topic: string;
+    gradeLevel: string;
+    difficulty: string;
+    language: string;
+    rawText: string;
+    questionCounts: Record<QuestionType, number>;
+  }>({
     topic: '',
     gradeLevel: 'High School',
-    numQuestions: 5,
-    rawText: '',
     difficulty: 'Medium',
-    language: 'English'
+    language: 'English',
+    rawText: '',
+    questionCounts: {
+      [QuestionType.MCQ]: 2,
+      [QuestionType.TF]: 2,
+      [QuestionType.SHORT_ANSWER]: 1,
+      [QuestionType.VOCABULARY]: 1,
+      [QuestionType.CHARACTER_DRILL]: 0,
+      [QuestionType.SYMBOL_DRILL]: 0,
+      [QuestionType.SENTENCE_DRILL]: 0,
+    }
   });
-  const [fileData, setFileData] = useState<{ data: string; mimeType: string } | null>(null);
+
+  const [fileData, setFileData] = useState<{ data: string; mimeType: string; name: string; preview?: string } | null>(null);
+  const [isCameraActive, setIsCameraActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const saved = localStorage.getItem('helen_saved_worksheets');
+    if (saved) {
+      try {
+        setSavedWorksheets(JSON.parse(saved));
+      } catch (e) {
+        console.error("Failed to parse saved worksheets");
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isCameraActive && videoRef.current) {
+      navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+        .then(stream => {
+          if (videoRef.current) {
+            videoRef.current.srcObject = stream;
+          }
+        })
+        .catch(err => {
+          console.error("Camera error:", err);
+          alert("Could not access camera. Please check permissions.");
+          setIsCameraActive(false);
+        });
+    }
+
+    return () => {
+      if (videoRef.current && videoRef.current.srcObject) {
+        const stream = videoRef.current.srcObject as MediaStream;
+        stream.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, [isCameraActive]);
+
+  const saveToStorage = (list: Worksheet[]) => {
+    localStorage.setItem('helen_saved_worksheets', JSON.stringify(list));
+    setSavedWorksheets(list);
+  };
+
+  const handleSaveCurrent = () => {
+    if (!worksheet) return;
+    const newSaved = [...savedWorksheets];
+    const existingIdx = newSaved.findIndex(w => w.id === worksheet.id);
+    
+    const worksheetToSave = {
+      ...worksheet,
+      id: worksheet.id || Date.now().toString(),
+      savedAt: Date.now()
+    };
+
+    if (existingIdx >= 0) {
+      newSaved[existingIdx] = worksheetToSave;
+    } else {
+      newSaved.unshift(worksheetToSave);
+    }
+    saveToStorage(newSaved);
+    alert("Worksheet saved to history!");
+  };
+
+  const handleDeleteSaved = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const newSaved = savedWorksheets.filter(w => w.id !== id);
+    saveToStorage(newSaved);
+  };
+
+  const handleLoadSaved = (saved: Worksheet) => {
+    setWorksheet(saved);
+    setMode(AppMode.WORKSHEET);
+  };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        const base64String = (reader.result as string).split(',')[1];
-        setFileData({ data: base64String, mimeType: file.type });
+        const result = reader.result as string;
+        const base64String = result.split(',')[1];
+        setFileData({ 
+          data: base64String, 
+          mimeType: file.type, 
+          name: file.name,
+          preview: file.type.startsWith('image/') ? result : undefined
+        });
       };
       reader.readAsDataURL(file);
     }
   };
 
-  const handleGenerate = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const capturePhoto = () => {
+    if (videoRef.current && canvasRef.current) {
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(video, 0, 0);
+        const dataUrl = canvas.toDataURL('image/jpeg');
+        const base64String = dataUrl.split(',')[1];
+        setFileData({
+          data: base64String,
+          mimeType: 'image/jpeg',
+          name: `camera_capture_${Date.now()}.jpg`,
+          preview: dataUrl
+        });
+        setIsCameraActive(false);
+      }
+    }
+  };
+
+  const handleGenerate = async () => {
+    const totalQuestions = (Object.values(formData.questionCounts) as number[]).reduce((a: number, b: number) => a + b, 0);
+    if (totalQuestions === 0) {
+      alert("Please select at least one question type count.");
+      return;
+    }
+
     setLoading(true);
     try {
       const result = await generateWorksheet({
-        ...formData,
-        fileData: inputMethod === InputMethod.UPLOAD ? (fileData || undefined) : undefined,
-        rawText: inputMethod === InputMethod.PASTE ? formData.rawText : undefined,
-        topic: inputMethod === InputMethod.PROMPT ? formData.topic : undefined
+        topic: formData.topic,
+        gradeLevel: formData.gradeLevel,
+        difficulty: formData.difficulty,
+        language: formData.language,
+        questionCounts: formData.questionCounts,
+        fileData: fileData || undefined,
+        rawText: formData.rawText || undefined,
       });
-      setWorksheet(result);
+      const finalResult = { ...result, id: Date.now().toString(), savedAt: Date.now() };
+      setWorksheet(finalResult);
       setMode(AppMode.WORKSHEET);
     } catch (error) {
-      alert("Something went wrong. Please check your API key or input.");
+      alert("Something went wrong. Helen is taking a break. Please check your inputs.");
     } finally {
       setLoading(false);
     }
   };
+
+  const updateCount = (type: QuestionType, delta: number) => {
+    setFormData(prev => ({
+      ...prev,
+      questionCounts: {
+        ...prev.questionCounts,
+        [type]: Math.max(0, Math.min(10, prev.questionCounts[type] + delta))
+      }
+    }));
+  };
+
+  const nextStep = () => setCurrentStep(prev => Math.min(prev + 1, 4));
+  const prevStep = () => setCurrentStep(prev => Math.max(prev - 1, 1));
 
   return (
     <div className="min-h-screen flex bg-slate-50">
@@ -121,7 +273,7 @@ const App: React.FC = () => {
           </div>
           <div>
             <h1 className="font-handwriting-header text-2xl text-slate-800">Helen's Hero</h1>
-            <p className="text-[10px] uppercase tracking-widest text-slate-400 font-bold">Smart Generator</p>
+            <p className="text-[10px] uppercase tracking-widest text-slate-400 font-bold">Smart Homework</p>
           </div>
         </div>
 
@@ -142,25 +294,59 @@ const App: React.FC = () => {
 
           <div>
             <h3 className="text-xs uppercase tracking-widest text-slate-400 font-bold mb-4 flex items-center gap-2">
-              <Layers className="w-3 h-3" /> Navigation
+              <Layers className="w-3 h-3" /> Tools
             </h3>
             <div className="space-y-2">
-              <button onClick={() => setMode(AppMode.GENERATOR)} className={`w-full flex items-center gap-3 p-3 rounded-xl font-medium transition-all ${mode === AppMode.GENERATOR ? 'bg-slate-100 text-slate-900' : 'text-slate-500 hover:bg-slate-50'}`}>
-                <BookOpen className="w-5 h-5" /> Generator
+              <button onClick={() => { setMode(AppMode.GENERATOR); setCurrentStep(1); }} className={`w-full flex items-center gap-3 p-3 rounded-xl font-medium transition-all ${mode === AppMode.GENERATOR ? 'bg-slate-100 text-slate-900' : 'text-slate-500 hover:bg-slate-50'}`}>
+                <Plus className="w-5 h-5 text-yellow-500" /> New Session
               </button>
               <button onClick={() => worksheet && setMode(AppMode.WORKSHEET)} disabled={!worksheet} className={`w-full flex items-center gap-3 p-3 rounded-xl font-medium transition-all ${mode === AppMode.WORKSHEET ? 'bg-slate-100 text-slate-900' : 'text-slate-500 hover:bg-slate-50 disabled:opacity-30'}`}>
-                <FileText className="w-5 h-5" /> View Worksheet
+                <FileText className="w-5 h-5" /> Active Worksheet
               </button>
               <button onClick={() => worksheet && setMode(AppMode.QUIZ)} disabled={!worksheet} className={`w-full flex items-center gap-3 p-3 rounded-xl font-medium transition-all ${mode === AppMode.QUIZ ? 'bg-slate-100 text-slate-900' : 'text-slate-500 hover:bg-slate-50 disabled:opacity-30'}`}>
-                <PlayCircle className="w-5 h-5" /> Interactive Quiz
+                <PlayCircle className="w-5 h-5" /> Quiz Mode
               </button>
+            </div>
+          </div>
+
+          <div>
+            <h3 className="text-xs uppercase tracking-widest text-slate-400 font-bold mb-4 flex items-center gap-2">
+              <History className="w-3 h-3" /> Worksheet Library
+            </h3>
+            <div className="space-y-2 max-h-72 overflow-y-auto pr-2 custom-scrollbar">
+              {savedWorksheets.length === 0 ? (
+                <div className="text-center p-6 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                  <BookOpen className="w-6 h-6 text-slate-300 mx-auto mb-2" />
+                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">Empty Library</p>
+                </div>
+              ) : (
+                savedWorksheets.map((saved) => (
+                  <div 
+                    key={saved.id}
+                    onClick={() => handleLoadSaved(saved)}
+                    className="group relative flex flex-col p-3 rounded-xl bg-slate-50 border border-slate-100 hover:bg-white hover:border-yellow-200 hover:shadow-sm cursor-pointer transition-all"
+                  >
+                    <span className="font-bold text-slate-700 text-xs truncate pr-6">{saved.title}</span>
+                    <span className="text-[10px] text-slate-400 mt-1 uppercase font-bold tracking-tighter">{saved.topic.slice(0, 30)}...</span>
+                    <button 
+                      onClick={(e) => handleDeleteSaved(saved.id!, e)}
+                      className="absolute right-2 top-2 p-1 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))
+              )}
             </div>
           </div>
           
           {worksheet && (
-            <div className="pt-8 border-t border-slate-100">
-               <button onClick={() => window.print()} className="w-full flex items-center justify-center gap-3 p-4 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-all shadow-lg active:scale-95">
-                <Download className="w-5 h-5" /> Export PDF
+            <div className="pt-8 border-t border-slate-100 space-y-3">
+              <button onClick={handleSaveCurrent} className="w-full flex items-center justify-center gap-3 p-4 bg-yellow-400 text-yellow-900 rounded-2xl font-black hover:bg-yellow-500 transition-all shadow-lg active:scale-95">
+                <Save className="w-5 h-5" /> Save Library
+              </button>
+              <button onClick={() => window.print()} className="w-full flex items-center justify-center gap-3 p-3 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-all">
+                <Download className="w-4 h-4" /> Export PDF
               </button>
             </div>
           )}
@@ -176,113 +362,278 @@ const App: React.FC = () => {
           ) : (
             <>
               {mode === AppMode.GENERATOR && (
-                <div className="max-w-3xl mx-auto pt-8">
-                  <div className="text-center mb-8">
-                    <h2 className="font-handwriting-header text-6xl text-slate-800 mb-4">
-                      Helen's <MarkerHighlight>Hero</MarkerHighlight> Generator
+                <div className="max-w-4xl mx-auto pt-8">
+                  <div className="text-center mb-10">
+                    <h2 className="font-handwriting-header text-7xl text-slate-800 mb-4">
+                      Homework <MarkerHighlight>Hero</MarkerHighlight>
                     </h2>
-                    <p className="text-slate-500 text-lg">Choose an input method and customize your worksheet.</p>
+                    <p className="text-slate-500 text-lg font-medium">Follow Helen's 4-step sequential generation process.</p>
+                    
+                    <div className="flex items-center justify-center gap-3 mt-10">
+                       {[
+                         { step: 1, label: 'Scan' },
+                         { step: 2, label: 'Paste' },
+                         { step: 3, label: 'Prompt' },
+                         { step: 4, label: 'Finalize' }
+                       ].map((s) => (
+                         <div key={s.step} className="flex items-center gap-3">
+                           <div className={`flex flex-col items-center gap-1`}>
+                             <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-sm border-2 transition-all ${
+                               currentStep === s.step ? 'bg-yellow-400 border-yellow-400 text-white shadow-xl scale-110' : 
+                               currentStep > s.step ? 'bg-green-500 border-green-500 text-white' : 'bg-white border-slate-200 text-slate-300'
+                             }`}>
+                               {currentStep > s.step ? <CheckCircle2 className="w-6 h-6" /> : s.step}
+                             </div>
+                             <span className={`text-[9px] uppercase font-black tracking-widest ${currentStep === s.step ? 'text-slate-800' : 'text-slate-300'}`}>
+                               {s.label}
+                             </span>
+                           </div>
+                           {s.step < 4 && <div className={`w-10 h-[3px] rounded-full mb-4 ${currentStep > s.step ? 'bg-green-400' : 'bg-slate-100'}`}></div>}
+                         </div>
+                       ))}
+                    </div>
                   </div>
 
-                  <div className="bg-white rounded-[2rem] shadow-xl border border-slate-100 overflow-hidden mb-8">
-                    {/* Input Method Tabs */}
-                    <div className="flex border-b border-slate-100">
-                      <button onClick={() => setInputMethod(InputMethod.PROMPT)} className={`flex-1 py-4 font-bold transition-all flex items-center justify-center gap-2 ${inputMethod === InputMethod.PROMPT ? 'bg-white text-yellow-600 border-b-4 border-yellow-400' : 'bg-slate-50 text-slate-400 hover:text-slate-600'}`}>
-                        <Sparkles className="w-4 h-4" /> AI Prompt
-                      </button>
-                      <button onClick={() => setInputMethod(InputMethod.PASTE)} className={`flex-1 py-4 font-bold transition-all flex items-center justify-center gap-2 ${inputMethod === InputMethod.PASTE ? 'bg-white text-yellow-600 border-b-4 border-yellow-400' : 'bg-slate-50 text-slate-400 hover:text-slate-600'}`}>
-                        <Clipboard className="w-4 h-4" /> Paste Text
-                      </button>
-                      <button onClick={() => setInputMethod(InputMethod.UPLOAD)} className={`flex-1 py-4 font-bold transition-all flex items-center justify-center gap-2 ${inputMethod === InputMethod.UPLOAD ? 'bg-white text-yellow-600 border-b-4 border-yellow-400' : 'bg-slate-50 text-slate-400 hover:text-slate-600'}`}>
-                        <Upload className="w-4 h-4" /> Scan Doc
-                      </button>
+                  <div className="bg-white rounded-[3rem] shadow-[0_20px_50px_rgba(0,0,0,0.05)] border border-slate-100 overflow-hidden mb-12 min-h-[600px] flex flex-col transform transition-all duration-500 hover:shadow-2xl">
+                    <div className="flex-1 p-12">
+                      
+                      {currentStep === 1 && (
+                        <div className="animate-in slide-in-from-right duration-500 h-full flex flex-col">
+                          <div className="flex items-center gap-4 mb-6">
+                            <div className="p-3 bg-blue-50 rounded-2xl"><Upload className="text-blue-500" /></div>
+                            <div>
+                              <h3 className="text-3xl font-black text-slate-800">1. Scan Document</h3>
+                              <p className="text-slate-400 font-medium">Capture or upload notes for analysis.</p>
+                            </div>
+                          </div>
+                          
+                          <div className="flex-1 flex flex-col items-center justify-center gap-6">
+                            {!fileData && !isCameraActive ? (
+                              <div className="w-full max-w-lg grid grid-cols-2 gap-6">
+                                <div 
+                                  onClick={() => fileInputRef.current?.click()} 
+                                  className="border-4 border-dashed border-slate-100 rounded-[2.5rem] p-10 text-center hover:border-yellow-200 transition-all cursor-pointer group bg-slate-50/50 relative overflow-hidden flex flex-col items-center justify-center"
+                                >
+                                  <input type="file" ref={fileInputRef} className="hidden" accept="image/*,application/pdf" onChange={handleFileChange} />
+                                  <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center mb-4 shadow-lg group-hover:scale-110 transition-transform border border-slate-50">
+                                    <Upload className="w-8 h-8 text-yellow-500" />
+                                  </div>
+                                  <p className="font-bold text-slate-700">Upload File</p>
+                                </div>
+
+                                <div 
+                                  onClick={() => setIsCameraActive(true)} 
+                                  className="border-4 border-dashed border-slate-100 rounded-[2.5rem] p-10 text-center hover:border-yellow-200 transition-all cursor-pointer group bg-slate-50/50 relative overflow-hidden flex flex-col items-center justify-center"
+                                >
+                                  <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center mb-4 shadow-lg group-hover:scale-110 transition-transform border border-slate-50">
+                                    <Camera className="w-8 h-8 text-blue-500" />
+                                  </div>
+                                  <p className="font-bold text-slate-700">Use Camera</p>
+                                </div>
+                              </div>
+                            ) : isCameraActive ? (
+                              <div className="w-full max-w-xl space-y-4 animate-in zoom-in duration-300">
+                                <div className="relative aspect-video rounded-[2rem] overflow-hidden bg-black shadow-2xl">
+                                  <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" />
+                                  <div className="absolute inset-0 border-2 border-white/20 pointer-events-none"></div>
+                                  <div className="absolute bottom-6 left-0 right-0 flex justify-center gap-4">
+                                    <button 
+                                      onClick={capturePhoto}
+                                      className="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-2xl active:scale-90 transition-transform"
+                                    >
+                                      <div className="w-12 h-12 border-4 border-slate-900 rounded-full"></div>
+                                    </button>
+                                    <button 
+                                      onClick={() => setIsCameraActive(false)}
+                                      className="w-16 h-16 bg-red-500 text-white rounded-full flex items-center justify-center shadow-2xl hover:bg-red-600"
+                                    >
+                                      <X className="w-8 h-8" />
+                                    </button>
+                                  </div>
+                                </div>
+                                <canvas ref={canvasRef} className="hidden" />
+                                <p className="text-center text-slate-400 font-medium">Position your document in clear lighting</p>
+                              </div>
+                            ) : (
+                              <div className="w-full max-w-lg space-y-6 animate-in zoom-in duration-300">
+                                <div className="relative rounded-[2.5rem] overflow-hidden bg-slate-100 border-4 border-white shadow-2xl group">
+                                  {fileData.preview ? (
+                                    <img src={fileData.preview} alt="Scan Preview" className="w-full h-80 object-contain bg-slate-900" />
+                                  ) : (
+                                    <div className="w-full h-80 flex flex-col items-center justify-center gap-4 bg-slate-800 text-white">
+                                      <FileIcon className="w-16 h-16 opacity-50" />
+                                      <p className="font-bold text-lg">{fileData.name}</p>
+                                    </div>
+                                  )}
+                                  <div className="absolute top-4 right-4 flex gap-2">
+                                    <button 
+                                      onClick={() => { setFileData(null); setIsCameraActive(true); }}
+                                      className="p-2 bg-white text-slate-800 rounded-full shadow-lg hover:bg-slate-50 transition-colors"
+                                    >
+                                      <RotateCcw className="w-5 h-5" />
+                                    </button>
+                                    <button 
+                                      onClick={() => setFileData(null)}
+                                      className="p-2 bg-red-500 text-white rounded-full shadow-lg hover:bg-red-600 transition-colors"
+                                    >
+                                      <X className="w-5 h-5" />
+                                    </button>
+                                  </div>
+                                </div>
+                                <div className="flex items-center justify-center gap-3 p-4 bg-green-50 text-green-700 rounded-2xl border border-green-100 font-bold">
+                                  <CheckCircle2 className="w-5 h-5" />
+                                  <span>Scan Captured Successfully</span>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {currentStep === 2 && (
+                        <div className="animate-in slide-in-from-right duration-500">
+                          <div className="flex items-center gap-4 mb-6">
+                            <div className="p-3 bg-purple-50 rounded-2xl"><Clipboard className="text-purple-500" /></div>
+                            <div>
+                              <h3 className="text-3xl font-black text-slate-800">2. Paste Text</h3>
+                              <p className="text-slate-400 font-medium">Add manual notes, URLs, or existing questions.</p>
+                            </div>
+                          </div>
+                          
+                          <div className="relative group">
+                            <textarea 
+                              placeholder="Paste any additional context..." 
+                              className="w-full p-10 rounded-[2.5rem] bg-slate-50 border-2 border-slate-100 focus:border-yellow-400 focus:bg-white focus:outline-none transition-all text-xl min-h-[350px] shadow-inner font-medium" 
+                              value={formData.rawText} 
+                              onChange={(e) => setFormData({...formData, rawText: e.target.value})} 
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {currentStep === 3 && (
+                        <div className="animate-in slide-in-from-right duration-500">
+                          <div className="flex items-center gap-4 mb-6">
+                            <div className="p-3 bg-yellow-50 rounded-2xl"><Sparkles className="text-yellow-500" /></div>
+                            <div>
+                              <h3 className="text-3xl font-black text-slate-800">3. Helen's Instructions</h3>
+                              <p className="text-slate-400 font-medium">Required. Tell Helen exactly what to build.</p>
+                            </div>
+                          </div>
+                          
+                          <textarea 
+                            required 
+                            placeholder="Describe your goal... e.g. 'Create a worksheet about photosyntesis'"
+                            className="w-full p-10 rounded-[2.5rem] bg-slate-50 border-2 border-slate-100 focus:border-yellow-400 focus:bg-white focus:outline-none transition-all text-xl min-h-[250px] font-medium" 
+                            value={formData.topic} 
+                            onChange={(e) => setFormData({...formData, topic: e.target.value})} 
+                          />
+                        </div>
+                      )}
+
+                      {currentStep === 4 && (
+                        <div className="animate-in slide-in-from-right duration-500">
+                          <div className="flex items-center gap-4 mb-8">
+                            <div className="p-3 bg-green-50 rounded-2xl"><Settings className="text-green-500" /></div>
+                            <div>
+                              <h3 className="text-3xl font-black text-slate-800">4. Question Type Precision</h3>
+                              <p className="text-slate-400 font-medium">Specify the exact count for each item type.</p>
+                            </div>
+                          </div>
+                          
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                            <div className="space-y-8">
+                              <div className="space-y-3">
+                                <label className="block text-xs font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Grade Level</label>
+                                <select className="w-full p-6 rounded-[2rem] bg-slate-50 border-2 border-slate-100 focus:border-yellow-400 outline-none font-bold text-slate-700" value={formData.gradeLevel} onChange={(e) => setFormData({...formData, gradeLevel: e.target.value})}>
+                                  <option>Elementary</option><option>Middle School</option><option>High School</option><option>University</option>
+                                </select>
+                              </div>
+                              <div className="space-y-3">
+                                <label className="block text-xs font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Difficulty</label>
+                                <select className="w-full p-6 rounded-[2rem] bg-slate-50 border-2 border-slate-100 focus:border-yellow-400 outline-none font-bold text-slate-700" value={formData.difficulty} onChange={(e) => setFormData({...formData, difficulty: e.target.value})}>
+                                  <option>Easy</option><option>Medium</option><option>Hard</option><option>Expert</option>
+                                </select>
+                              </div>
+                              <div className="space-y-3">
+                                <label className="block text-xs font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Language</label>
+                                <select className="w-full p-6 rounded-[2rem] bg-slate-50 border-2 border-slate-100 focus:border-yellow-400 outline-none font-bold text-slate-700" value={formData.language} onChange={(e) => setFormData({...formData, language: e.target.value})}>
+                                  <option>English</option><option>Spanish</option><option>French</option><option>German</option><option>Chinese</option>
+                                </select>
+                              </div>
+                            </div>
+
+                            <div className="bg-slate-50 rounded-[2.5rem] p-8 border border-slate-100">
+                              <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-6">Question Mix</h4>
+                              <div className="space-y-4">
+                                {Object.entries(formData.questionCounts).map(([type, count]) => (
+                                  <div key={type} className="flex items-center justify-between bg-white p-3 px-5 rounded-2xl shadow-sm">
+                                    <span className="text-xs font-bold text-slate-600">{type.replace('_', ' ')}</span>
+                                    <div className="flex items-center gap-3">
+                                      <button onClick={() => updateCount(type as QuestionType, -1)} className="p-1 hover:bg-slate-100 rounded-lg text-slate-400 transition-colors">
+                                        <Minus className="w-4 h-4" />
+                                      </button>
+                                      <span className="w-4 text-center font-black text-slate-800">{count}</span>
+                                      <button onClick={() => updateCount(type as QuestionType, 1)} className="p-1 hover:bg-slate-100 rounded-lg text-slate-400 transition-colors">
+                                        <Plus className="w-4 h-4" />
+                                      </button>
+                                    </div>
+                                  </div>
+                                ))}
+                                <div className="pt-4 border-t border-slate-200 mt-4 flex justify-between items-center px-2">
+                                  <span className="text-xs font-black text-slate-400 uppercase">Total Items</span>
+                                  <span className="text-xl font-black text-yellow-600">
+                                    {(Object.values(formData.questionCounts) as number[]).reduce((a: number, b: number) => a + b, 0)}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
 
-                    <form onSubmit={handleGenerate} className="p-8 space-y-6">
-                      {inputMethod === InputMethod.PROMPT && (
-                        <div>
-                          <label className="block text-sm font-bold text-slate-700 mb-2">Subject or Topic</label>
-                          <input type="text" required placeholder="e.g. Ancient Egypt, Periodic Table, Algebra Basics..." className="w-full p-4 rounded-2xl bg-slate-50 border-2 border-slate-50 focus:border-yellow-400 focus:outline-none transition-all text-lg" value={formData.topic} onChange={(e) => setFormData({...formData, topic: e.target.value})} />
-                        </div>
-                      )}
-
-                      {inputMethod === InputMethod.PASTE && (
-                        <div>
-                          <label className="block text-sm font-bold text-slate-700 mb-2">Manual Content or Questions</label>
-                          <textarea required placeholder="Paste your notes, existing questions, or a block of text here..." className="w-full p-4 rounded-2xl bg-slate-50 border-2 border-slate-50 focus:border-yellow-400 focus:outline-none transition-all text-lg min-h-[200px]" value={formData.rawText} onChange={(e) => setFormData({...formData, rawText: e.target.value})} />
-                        </div>
-                      )}
-
-                      {inputMethod === InputMethod.UPLOAD && (
-                        <div onClick={() => fileInputRef.current?.click()} className="border-4 border-dashed border-slate-100 rounded-[2rem] p-12 text-center hover:border-yellow-200 transition-all cursor-pointer group bg-slate-50/50">
-                          <input type="file" ref={fileInputRef} className="hidden" accept="image/*,application/pdf" onChange={handleFileChange} />
-                          <div className="w-20 h-20 bg-white rounded-3xl flex items-center justify-center mx-auto mb-4 shadow-sm group-hover:scale-110 transition-all">
-                            <Upload className="w-10 h-10 text-yellow-400" />
-                          </div>
-                          <p className="font-bold text-slate-600 text-lg">{fileData ? "File Ready to Scan!" : "Drop PDF or Image here"}</p>
-                          <p className="text-slate-400 mt-2 text-sm italic">Gemini will analyze the content for you.</p>
-                        </div>
-                      )}
-
-                      {/* Common Settings */}
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-sm font-bold text-slate-700 mb-2">Student Level</label>
-                          <select className="w-full p-4 rounded-2xl bg-slate-50 border-2 border-slate-50 focus:border-yellow-400 focus:outline-none transition-all" value={formData.gradeLevel} onChange={(e) => setFormData({...formData, gradeLevel: e.target.value})}>
-                            <option>Elementary</option><option>Middle School</option><option>High School</option><option>University</option>
-                          </select>
-                        </div>
-                        <div>
-                          <label className="block text-sm font-bold text-slate-700 mb-2">Items Count</label>
-                          <input type="number" min="1" max="20" className="w-full p-4 rounded-2xl bg-slate-50 border-2 border-slate-50 focus:border-yellow-400 focus:outline-none transition-all" value={formData.numQuestions} onChange={(e) => setFormData({...formData, numQuestions: parseInt(e.target.value)})} />
-                        </div>
-                      </div>
-
-                      {/* Advanced Settings */}
-                      <div className="pt-2">
-                        <button type="button" onClick={() => setShowAdvanced(!showAdvanced)} className="flex items-center gap-2 text-slate-400 hover:text-slate-600 font-bold text-sm transition-all">
-                          {showAdvanced ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                          Advanced Customization
-                        </button>
-                        
-                        {showAdvanced && (
-                          <div className="grid grid-cols-2 gap-4 mt-4 p-6 bg-slate-50 rounded-[2rem] animate-in slide-in-from-top-2 duration-300">
-                            <div>
-                              <label className="block text-xs uppercase tracking-widest font-black text-slate-400 mb-2 flex items-center gap-2">
-                                <Zap className="w-3 h-3" /> Difficulty
-                              </label>
-                              <select className="w-full p-3 rounded-xl bg-white border border-slate-200 focus:border-yellow-400 outline-none text-sm" value={formData.difficulty} onChange={(e) => setFormData({...formData, difficulty: e.target.value})}>
-                                <option>Easy</option><option>Medium</option><option>Hard</option><option>Expert</option>
-                              </select>
-                            </div>
-                            <div>
-                              <label className="block text-xs uppercase tracking-widest font-black text-slate-400 mb-2 flex items-center gap-2">
-                                <Globe className="w-3 h-3" /> Language
-                              </label>
-                              <select className="w-full p-3 rounded-xl bg-white border border-slate-200 focus:border-yellow-400 outline-none text-sm" value={formData.language} onChange={(e) => setFormData({...formData, language: e.target.value})}>
-                                <option>English</option><option>Spanish</option><option>French</option><option>German</option><option>Chinese</option>
-                              </select>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-
-                      <button type="submit" className="w-full py-5 bg-yellow-400 text-yellow-900 rounded-[2rem] font-black text-2xl hover:bg-yellow-500 transition-all flex items-center justify-center gap-3 shadow-[0px_8px_0px_0px_#ca8a04] active:shadow-none active:translate-y-1">
-                        <Sparkles className="w-7 h-7" /> Generate Worksheet
+                    <div className="p-10 bg-slate-50/80 border-t border-slate-100 flex justify-between items-center backdrop-blur-md">
+                      <button onClick={prevStep} disabled={currentStep === 1} className={`flex items-center gap-3 px-8 py-4 rounded-2xl font-black transition-all ${currentStep === 1 ? 'opacity-0 pointer-events-none' : 'text-slate-400 hover:text-slate-800'}`}>
+                        <ArrowLeft className="w-6 h-6" /> Back
                       </button>
-                    </form>
+
+                      {currentStep < 4 ? (
+                        <button onClick={nextStep} disabled={currentStep === 3 && !formData.topic} className={`flex items-center gap-3 px-12 py-4 bg-white text-slate-800 rounded-2xl font-black border-2 border-slate-100 hover:border-yellow-400 transition-all disabled:opacity-50`}>
+                          Continue <ArrowRight className="w-6 h-6" />
+                        </button>
+                      ) : (
+                        <button onClick={handleGenerate} className="flex items-center gap-4 px-16 py-5 bg-yellow-400 text-yellow-900 rounded-[2.5rem] font-black text-xl hover:bg-yellow-500 shadow-lg animate-bounce-slow">
+                          <Sparkles className="w-7 h-7" /> Generate Worksheet
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}
 
               {mode === AppMode.WORKSHEET && worksheet && (
-                <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 pt-8">
+                <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 pt-8">
+                  <div className="max-w-[210mm] mx-auto mb-6 flex justify-between items-center bg-white p-4 rounded-3xl shadow-sm border border-slate-100">
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 bg-yellow-400 rounded-xl flex items-center justify-center font-bold text-yellow-900">1</div>
+                      <p className="font-bold text-slate-600">Worksheet View</p>
+                    </div>
+                    <div className="flex gap-2">
+                       <button onClick={handleSaveCurrent} className="flex items-center gap-2 px-4 py-2 bg-yellow-50 text-yellow-700 rounded-xl font-bold hover:bg-yellow-100 transition-colors">
+                        <Save className="w-4 h-4" /> Save
+                       </button>
+                       <button onClick={() => setMode(AppMode.QUIZ)} className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-colors">
+                        <PlayCircle className="w-4 h-4" /> Quiz
+                       </button>
+                    </div>
+                  </div>
                   <WorksheetView worksheet={worksheet} theme={theme} />
                 </div>
               )}
 
               {mode === AppMode.QUIZ && worksheet && (
-                <div className="animate-in fade-in zoom-in duration-500 pt-8">
+                <div className="animate-in fade-in zoom-in duration-700 pt-8">
                   <QuizView worksheet={worksheet} theme={theme} onExit={() => setMode(AppMode.WORKSHEET)} />
                 </div>
               )}
@@ -290,15 +641,6 @@ const App: React.FC = () => {
           )}
         </div>
       </main>
-      
-      <style>{`
-        @media print {
-          aside { display: none !important; }
-          main { margin-left: 0 !important; }
-          .p-8 { padding: 0 !important; }
-          @page { size: auto; margin: 0; }
-        }
-      `}</style>
     </div>
   );
 };
