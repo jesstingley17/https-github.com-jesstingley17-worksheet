@@ -4,6 +4,8 @@ import { generateWorksheet, generateTopicScopeSuggestion } from './services/gemi
 import { WorksheetView } from './components/WorksheetView';
 import { QuizView } from './components/QuizView';
 import { MarkerHighlight } from './components/HandwritingElements';
+import html2canvas from 'html2canvas';
+import { jsPDF } from 'jspdf';
 import { 
   Sparkles, 
   Settings, 
@@ -42,7 +44,9 @@ import {
   Activity,
   Zap,
   Wand2,
-  Printer
+  Printer,
+  FileDown,
+  FastForward
 } from 'lucide-react';
 
 const WorksheetSkeleton: React.FC<{ theme: ThemeType }> = ({ theme }) => {
@@ -338,6 +342,38 @@ const App: React.FC = () => {
     }
   };
 
+  const handleExportPDF = async () => {
+    const element = document.getElementById('worksheet-content');
+    if (!element) return;
+    
+    setLoading(true);
+    try {
+      const canvas = await html2canvas(element, {
+        scale: 2, // Use 2x scale for better print quality
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff'
+      });
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4',
+      });
+      
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      pdf.save(`${worksheet?.title || 'homework_hero_worksheet'}.pdf`);
+    } catch (error) {
+      console.error('PDF Export failed:', error);
+      alert('PDF generation failed. You can use the Print button as an alternative.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const updateCount = (type: QuestionType, delta: number) => {
     setFormData(prev => ({
       ...prev,
@@ -562,7 +598,7 @@ const App: React.FC = () => {
                           <div className="flex items-center gap-4 mb-6">
                             <div className="p-3 bg-blue-50 rounded-2xl"><Upload className="text-blue-500" /></div>
                             <div>
-                              <h3 className="text-3xl font-black text-slate-800">1. Scan Media</h3>
+                              <h3 className="text-3xl font-black text-slate-800">1. Scan Media (Optional)</h3>
                               <p className="text-slate-400 font-medium">Extract context from textbook photos or PDFs.</p>
                             </div>
                           </div>
@@ -647,7 +683,7 @@ const App: React.FC = () => {
                           <div className="flex items-center gap-4 mb-6">
                             <div className="p-3 bg-purple-50 rounded-2xl"><Clipboard className="text-purple-500" /></div>
                             <div>
-                              <h3 className="text-3xl font-black text-slate-800">2. Text Integration</h3>
+                              <h3 className="text-3xl font-black text-slate-800">2. Text Integration (Optional)</h3>
                               <p className="text-slate-400 font-medium">Paste direct quotes, problem sets, or specific facts.</p>
                             </div>
                           </div>
@@ -844,9 +880,19 @@ const App: React.FC = () => {
 
                       <div className="flex flex-col items-center gap-2">
                         {currentStep < 4 ? (
-                          <button onClick={nextStep} disabled={currentStep === 3 && !formData.topic.trim()} className={`flex items-center gap-3 px-14 py-4 bg-white text-slate-800 rounded-2xl font-black border-2 border-slate-100 hover:border-yellow-400 transition-all disabled:opacity-50 shadow-sm active:scale-95`}>
-                            Continue <ArrowRight className="w-6 h-6" />
-                          </button>
+                          <div className="flex items-center gap-3">
+                             {(currentStep === 1 || currentStep === 2) && (
+                               <button 
+                                 onClick={nextStep}
+                                 className="px-6 py-4 text-slate-400 hover:text-slate-600 font-bold uppercase text-[10px] tracking-widest border-2 border-transparent hover:border-slate-200 rounded-2xl transition-all flex items-center gap-2"
+                               >
+                                 <FastForward className="w-4 h-4" /> Skip for now
+                               </button>
+                             )}
+                            <button onClick={nextStep} disabled={currentStep === 3 && !formData.topic.trim()} className={`flex items-center gap-3 px-14 py-4 bg-white text-slate-800 rounded-2xl font-black border-2 border-slate-100 hover:border-yellow-400 transition-all disabled:opacity-50 shadow-sm active:scale-95`}>
+                              Continue <ArrowRight className="w-6 h-6" />
+                            </button>
+                          </div>
                         ) : (
                           <button onClick={handleGenerate} disabled={totalQuestions === 0} className={`flex items-center gap-4 px-16 py-5 rounded-[2.5rem] font-black text-xl transition-all active:scale-95 ${totalQuestions === 0 ? 'bg-slate-200 text-slate-400 cursor-not-allowed opacity-50 shadow-none' : 'bg-yellow-400 text-yellow-900 shadow-xl hover:bg-yellow-500 animate-pulse hover:animate-none'}`}>
                             <Sparkles className="w-7 h-7" /> Build Final Sheet
@@ -871,8 +917,11 @@ const App: React.FC = () => {
                       <p className="font-bold text-slate-600">Generated View</p>
                     </div>
                     <div className="flex gap-2">
+                       <button onClick={handleExportPDF} className="flex items-center gap-2 px-4 py-2 bg-white border-2 border-slate-100 text-slate-700 rounded-xl font-bold hover:border-blue-400 hover:text-blue-600 transition-all">
+                        <FileDown className="w-4 h-4" /> Download PDF
+                       </button>
                        <button onClick={() => window.print()} className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition-colors">
-                        <Printer className="w-4 h-4" /> Print Worksheet
+                        <Printer className="w-4 h-4" /> Print
                        </button>
                        <button onClick={() => setShowTeacherKey(!showTeacherKey)} className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold transition-all ${showTeacherKey ? 'bg-red-100 text-red-700 shadow-inner' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}><Key className="w-4 h-4" /> {showTeacherKey ? "Hide Solutions" : "Teacher Solution Key"}</button>
                        <button onClick={handleSaveCurrent} className="flex items-center gap-2 px-4 py-2 bg-yellow-50 text-yellow-700 rounded-xl font-bold hover:bg-yellow-100 transition-colors"><Save className="w-4 h-4" /> Store Worksheet</button>
