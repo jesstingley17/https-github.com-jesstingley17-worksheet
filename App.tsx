@@ -1,5 +1,5 @@
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { AppMode, Worksheet, ThemeType, QuestionType } from './types';
 import { generateWorksheet, generateTopicScopeSuggestion, analyzeSourceMaterial } from './services/geminiService';
 import { WorksheetView } from './components/WorksheetView';
@@ -139,6 +139,42 @@ const App: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  const presets: Record<string, Record<QuestionType, number>> = useMemo(() => ({
+    "Classic Exam": {
+      [QuestionType.MCQ]: 4,
+      [QuestionType.TF]: 2,
+      [QuestionType.SHORT_ANSWER]: 2,
+      [QuestionType.VOCABULARY]: 0,
+      [QuestionType.CHARACTER_DRILL]: 0,
+      [QuestionType.SYMBOL_DRILL]: 0,
+      [QuestionType.SENTENCE_DRILL]: 0,
+    },
+    "Skill Practice": {
+      [QuestionType.MCQ]: 0,
+      [QuestionType.TF]: 0,
+      [QuestionType.SHORT_ANSWER]: 0,
+      [QuestionType.VOCABULARY]: 3,
+      [QuestionType.CHARACTER_DRILL]: 2,
+      [QuestionType.SYMBOL_DRILL]: 2,
+      [QuestionType.SENTENCE_DRILL]: 1,
+    },
+    "Mixed Hero": {
+      [QuestionType.MCQ]: 2,
+      [QuestionType.TF]: 2,
+      [QuestionType.SHORT_ANSWER]: 1,
+      [QuestionType.VOCABULARY]: 1,
+      [QuestionType.CHARACTER_DRILL]: 1,
+      [QuestionType.SYMBOL_DRILL]: 0,
+      [QuestionType.SENTENCE_DRILL]: 1,
+    }
+  }), []);
+
+  const activePreset = useMemo(() => {
+    return Object.entries(presets).find(([_, counts]) => {
+      return Object.entries(counts).every(([type, count]) => formData.questionCounts[type as QuestionType] === count);
+    })?.[0] || null;
+  }, [formData.questionCounts, presets]);
 
   const educationalLevels = [
     "Preschool (3-5 years)",
@@ -451,36 +487,6 @@ const App: React.FC = () => {
   };
 
   const applyPreset = (presetName: string) => {
-    const presets: Record<string, Record<QuestionType, number>> = {
-      "Classic Exam": {
-        [QuestionType.MCQ]: 4,
-        [QuestionType.TF]: 2,
-        [QuestionType.SHORT_ANSWER]: 2,
-        [QuestionType.VOCABULARY]: 0,
-        [QuestionType.CHARACTER_DRILL]: 0,
-        [QuestionType.SYMBOL_DRILL]: 0,
-        [QuestionType.SENTENCE_DRILL]: 0,
-      },
-      "Skill Practice": {
-        [QuestionType.MCQ]: 0,
-        [QuestionType.TF]: 0,
-        [QuestionType.SHORT_ANSWER]: 0,
-        [QuestionType.VOCABULARY]: 3,
-        [QuestionType.CHARACTER_DRILL]: 2,
-        [QuestionType.SYMBOL_DRILL]: 2,
-        [QuestionType.SENTENCE_DRILL]: 1,
-      },
-      "Mixed Hero": {
-        [QuestionType.MCQ]: 2,
-        [QuestionType.TF]: 2,
-        [QuestionType.SHORT_ANSWER]: 1,
-        [QuestionType.VOCABULARY]: 1,
-        [QuestionType.CHARACTER_DRILL]: 1,
-        [QuestionType.SYMBOL_DRILL]: 0,
-        [QuestionType.SENTENCE_DRILL]: 1,
-      }
-    };
-
     if (presets[presetName]) {
       setFormData(prev => ({
         ...prev,
@@ -857,33 +863,52 @@ const App: React.FC = () => {
                             </div>
                           </div>
 
-                          <div className="mb-10 p-4 sm:p-6 bg-slate-50 rounded-[1.5rem] sm:rounded-[2.5rem] border border-slate-100">
-                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
-                              <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                                <Zap className="w-4 h-4 text-yellow-500" /> Quick Mix Presets
-                              </h4>
-                              <div className="flex items-center gap-3 bg-white p-2 px-4 rounded-2xl border border-slate-100 shadow-sm">
-                                <FileStack className="w-4 h-4 text-blue-500" />
-                                <span className="text-xs font-bold text-slate-600">Page Target:</span>
+                          <div className="mb-10 p-6 sm:p-8 bg-slate-50 rounded-[2rem] sm:rounded-[3rem] border border-slate-100 shadow-inner">
+                            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-8 gap-6">
+                              <div className="space-y-1">
+                                <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 mb-2">
+                                  <Zap className="w-4 h-4 text-yellow-500" /> Distribution Presets
+                                </h4>
+                                <div className="flex flex-wrap gap-2">
+                                  {Object.keys(presets).map(preset => (
+                                    <button 
+                                      key={preset} 
+                                      onClick={() => applyPreset(preset)} 
+                                      className={`px-4 py-2 sm:px-6 sm:py-3 border-2 rounded-xl sm:rounded-2xl font-bold text-xs sm:text-sm transition-all active:scale-95 shadow-sm flex items-center gap-2 ${
+                                        activePreset === preset 
+                                        ? 'bg-yellow-400 border-yellow-400 text-yellow-900 ring-4 ring-yellow-100' 
+                                        : 'bg-white border-slate-100 text-slate-600 hover:border-yellow-400 hover:text-yellow-600'
+                                      }`}
+                                    >
+                                      {activePreset === preset && <CheckCircle2 className="w-4 h-4" />}
+                                      {preset}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+
+                              <div className="w-full lg:w-auto p-4 bg-white rounded-2xl border border-slate-100 shadow-sm">
+                                <div className="flex items-center gap-3 mb-3">
+                                  <FileStack className="w-4 h-4 text-blue-500" />
+                                  <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Document Target Length</span>
+                                </div>
                                 <div className="flex items-center gap-2">
                                   {[1, 2, 3, 5].map(p => (
                                     <button 
                                       key={p} 
                                       onClick={() => setFormData({...formData, pageCount: p})}
-                                      className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-black transition-all ${formData.pageCount === p ? 'bg-blue-600 text-white shadow-md' : 'bg-slate-50 text-slate-400 hover:bg-slate-100'}`}
+                                      className={`flex-1 lg:w-10 lg:h-10 p-2 rounded-xl flex items-center justify-center text-sm font-black transition-all ${
+                                        formData.pageCount === p 
+                                        ? 'bg-blue-600 text-white shadow-lg scale-105' 
+                                        : 'bg-slate-50 text-slate-400 hover:bg-slate-100'
+                                      }`}
                                     >
                                       {p}
                                     </button>
                                   ))}
+                                  <span className="text-[10px] font-bold text-slate-300 ml-2 uppercase">Pages</span>
                                 </div>
                               </div>
-                            </div>
-                            <div className="flex flex-wrap gap-2 sm:gap-4">
-                              {["Classic Exam", "Skill Practice", "Mixed Hero"].map(preset => (
-                                <button key={preset} onClick={() => applyPreset(preset)} className="px-4 py-2 sm:px-6 sm:py-3 bg-white border-2 border-slate-100 rounded-xl sm:rounded-2xl font-bold text-xs sm:text-sm text-slate-600 hover:border-yellow-400 hover:text-yellow-600 transition-all active:scale-95 shadow-sm">
-                                  {preset}
-                                </button>
-                              ))}
                             </div>
                           </div>
                           
@@ -891,19 +916,20 @@ const App: React.FC = () => {
                             <div className="lg:col-span-4 space-y-6 sm:space-y-8">
                               <div className="space-y-3">
                                 <label className="block text-xs font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Educational Level</label>
-                                <div className="p-4 sm:p-6 rounded-[1.5rem] sm:rounded-[2rem] bg-slate-100 border-2 border-slate-200 font-bold text-slate-500 cursor-not-allowed text-sm">
+                                <div className="p-4 sm:p-6 rounded-[1.5rem] sm:rounded-[2rem] bg-slate-100 border-2 border-slate-200 font-bold text-slate-500 cursor-not-allowed text-sm flex items-center justify-between">
                                   {formData.educationalLevel}
+                                  <Lock className="w-4 h-4 opacity-30" />
                                 </div>
                               </div>
                               <div className="space-y-3">
                                 <label className="block text-xs font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Difficulty</label>
-                                <select className="w-full p-4 sm:p-6 rounded-[1.5rem] sm:rounded-[2rem] bg-slate-50 border-2 border-slate-100 focus:border-yellow-400 outline-none font-bold text-slate-700" value={formData.difficulty} onChange={(e) => setFormData({...formData, difficulty: e.target.value})}>
+                                <select className="w-full p-4 sm:p-6 rounded-[1.5rem] sm:rounded-[2rem] bg-slate-50 border-2 border-slate-100 focus:border-yellow-400 outline-none font-bold text-slate-700 transition-all hover:bg-white" value={formData.difficulty} onChange={(e) => setFormData({...formData, difficulty: e.target.value})}>
                                   <option>Easy</option><option>Medium</option><option>Hard</option><option>Expert</option>
                                 </select>
                               </div>
                               <div className="space-y-3">
                                 <label className="block text-xs font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Language</label>
-                                <select className="w-full p-4 sm:p-6 rounded-[1.5rem] sm:rounded-[2rem] bg-slate-50 border-2 border-slate-100 focus:border-yellow-400 outline-none font-bold text-slate-700" value={formData.language} onChange={(e) => setFormData({...formData, language: e.target.value})}>
+                                <select className="w-full p-4 sm:p-6 rounded-[1.5rem] sm:rounded-[2rem] bg-slate-50 border-2 border-slate-100 focus:border-yellow-400 outline-none font-bold text-slate-700 transition-all hover:bg-white" value={formData.language} onChange={(e) => setFormData({...formData, language: e.target.value})}>
                                   <option>English</option><option>Spanish</option><option>French</option><option>German</option><option>Chinese</option>
                                 </select>
                               </div>
@@ -912,7 +938,7 @@ const App: React.FC = () => {
                             <div className="lg:col-span-4 bg-slate-50 rounded-[1.5rem] sm:rounded-[2.5rem] p-6 sm:p-8 border border-slate-100">
                               <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-6 flex items-center justify-between">
                                 Item Distribution
-                                <span className={`px-2 py-0.5 rounded text-[10px] shadow-sm ${totalQuestions === 0 ? 'bg-red-400 text-white' : 'bg-yellow-400 text-yellow-900'}`}>
+                                <span className={`px-2 py-0.5 rounded text-[10px] shadow-sm transition-colors ${totalQuestions === 0 ? 'bg-red-400 text-white' : 'bg-yellow-400 text-yellow-900'}`}>
                                   Total: {totalQuestions}
                                 </span>
                               </h4>
