@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { AppMode, Worksheet, ThemeType, QuestionType } from './types';
 import { generateWorksheet } from './services/geminiService';
@@ -34,7 +33,8 @@ import {
   FileIcon,
   X,
   Camera,
-  RotateCcw
+  RotateCcw,
+  CloudCheck
 } from 'lucide-react';
 
 const WorksheetSkeleton: React.FC<{ theme: ThemeType }> = ({ theme }) => {
@@ -82,6 +82,7 @@ const App: React.FC = () => {
   const [worksheet, setWorksheet] = useState<Worksheet | null>(null);
   const [savedWorksheets, setSavedWorksheets] = useState<Worksheet[]>([]);
   const [loading, setLoading] = useState(false);
+  const [lastSavedTime, setLastSavedTime] = useState<number | null>(null);
   
   const [formData, setFormData] = useState<{
     topic: string;
@@ -113,6 +114,7 @@ const App: React.FC = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
+  // Load saved worksheets and generator draft on mount
   useEffect(() => {
     const saved = localStorage.getItem('helen_saved_worksheets');
     if (saved) {
@@ -122,7 +124,27 @@ const App: React.FC = () => {
         console.error("Failed to parse saved worksheets");
       }
     }
+
+    const savedDraft = localStorage.getItem('helen_generator_draft');
+    if (savedDraft) {
+      try {
+        const parsed = JSON.parse(savedDraft);
+        setFormData(parsed);
+      } catch (e) {
+        console.error("Failed to parse generator draft");
+      }
+    }
   }, []);
+
+  // Autosave generator data
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      localStorage.setItem('helen_generator_draft', JSON.stringify(formData));
+      setLastSavedTime(Date.now());
+    }, 1000); // Debounce save by 1 second
+
+    return () => clearTimeout(timer);
+  }, [formData]);
 
   useEffect(() => {
     if (isCameraActive && videoRef.current) {
@@ -181,6 +203,31 @@ const App: React.FC = () => {
   const handleLoadSaved = (saved: Worksheet) => {
     setWorksheet(saved);
     setMode(AppMode.WORKSHEET);
+  };
+
+  const resetForm = () => {
+    if (confirm("Clear all inputs and start fresh?")) {
+      const empty = {
+        topic: '',
+        gradeLevel: 'High School',
+        difficulty: 'Medium',
+        language: 'English',
+        rawText: '',
+        questionCounts: {
+          [QuestionType.MCQ]: 2,
+          [QuestionType.TF]: 2,
+          [QuestionType.SHORT_ANSWER]: 1,
+          [QuestionType.VOCABULARY]: 1,
+          [QuestionType.CHARACTER_DRILL]: 0,
+          [QuestionType.SYMBOL_DRILL]: 0,
+          [QuestionType.SENTENCE_DRILL]: 0,
+        }
+      };
+      setFormData(empty);
+      setFileData(null);
+      setCurrentStep(1);
+      localStorage.removeItem('helen_generator_draft');
+    }
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -433,19 +480,24 @@ const App: React.FC = () => {
                               </div>
                             ) : isCameraActive ? (
                               <div className="w-full max-w-xl space-y-4 animate-in zoom-in duration-300">
-                                <div className="relative aspect-video rounded-[2rem] overflow-hidden bg-black shadow-2xl">
+                                <div className="relative aspect-video rounded-[2rem] overflow-hidden bg-black shadow-2xl animate-subtle-zoom">
                                   <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" />
                                   <div className="absolute inset-0 border-2 border-white/20 pointer-events-none"></div>
+                                  <div className="absolute top-4 left-4 bg-yellow-400 text-yellow-900 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest animate-pulse shadow-lg z-20">
+                                    Ready to Scan
+                                  </div>
                                   <div className="absolute bottom-6 left-0 right-0 flex justify-center gap-4">
                                     <button 
                                       onClick={capturePhoto}
-                                      className="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-2xl active:scale-90 transition-transform"
+                                      className="relative w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-2xl active:scale-90 transition-transform group"
                                     >
-                                      <div className="w-12 h-12 border-4 border-slate-900 rounded-full"></div>
+                                      {/* Pulsing ring indicator */}
+                                      <div className="absolute inset-0 rounded-full bg-white animate-pulse-ring pointer-events-none"></div>
+                                      <div className="relative w-12 h-12 border-4 border-slate-900 rounded-full z-10"></div>
                                     </button>
                                     <button 
                                       onClick={() => setIsCameraActive(false)}
-                                      className="w-16 h-16 bg-red-500 text-white rounded-full flex items-center justify-center shadow-2xl hover:bg-red-600"
+                                      className="w-16 h-16 bg-red-500 text-white rounded-full flex items-center justify-center shadow-2xl hover:bg-red-600 transition-colors z-10"
                                     >
                                       <X className="w-8 h-8" />
                                     </button>
@@ -594,19 +646,31 @@ const App: React.FC = () => {
                     </div>
 
                     <div className="p-10 bg-slate-50/80 border-t border-slate-100 flex justify-between items-center backdrop-blur-md">
-                      <button onClick={prevStep} disabled={currentStep === 1} className={`flex items-center gap-3 px-8 py-4 rounded-2xl font-black transition-all ${currentStep === 1 ? 'opacity-0 pointer-events-none' : 'text-slate-400 hover:text-slate-800'}`}>
-                        <ArrowLeft className="w-6 h-6" /> Back
-                      </button>
+                      <div className="flex items-center gap-6">
+                        <button onClick={prevStep} disabled={currentStep === 1} className={`flex items-center gap-3 px-8 py-4 rounded-2xl font-black transition-all ${currentStep === 1 ? 'opacity-0 pointer-events-none' : 'text-slate-400 hover:text-slate-800'}`}>
+                          <ArrowLeft className="w-6 h-6" /> Back
+                        </button>
+                        <button onClick={resetForm} className="text-xs font-black uppercase tracking-widest text-slate-300 hover:text-red-400 transition-colors">
+                          Reset All
+                        </button>
+                      </div>
 
-                      {currentStep < 4 ? (
-                        <button onClick={nextStep} disabled={currentStep === 3 && !formData.topic} className={`flex items-center gap-3 px-12 py-4 bg-white text-slate-800 rounded-2xl font-black border-2 border-slate-100 hover:border-yellow-400 transition-all disabled:opacity-50`}>
-                          Continue <ArrowRight className="w-6 h-6" />
-                        </button>
-                      ) : (
-                        <button onClick={handleGenerate} className="flex items-center gap-4 px-16 py-5 bg-yellow-400 text-yellow-900 rounded-[2.5rem] font-black text-xl hover:bg-yellow-500 shadow-lg animate-bounce-slow">
-                          <Sparkles className="w-7 h-7" /> Generate Worksheet
-                        </button>
-                      )}
+                      <div className="flex flex-col items-center gap-2">
+                        {currentStep < 4 ? (
+                          <button onClick={nextStep} disabled={currentStep === 3 && !formData.topic} className={`flex items-center gap-3 px-12 py-4 bg-white text-slate-800 rounded-2xl font-black border-2 border-slate-100 hover:border-yellow-400 transition-all disabled:opacity-50`}>
+                            Continue <ArrowRight className="w-6 h-6" />
+                          </button>
+                        ) : (
+                          <button onClick={handleGenerate} className="flex items-center gap-4 px-16 py-5 bg-yellow-400 text-yellow-900 rounded-[2.5rem] font-black text-xl hover:bg-yellow-500 shadow-lg animate-bounce-slow">
+                            <Sparkles className="w-7 h-7" /> Generate Worksheet
+                          </button>
+                        )}
+                        {lastSavedTime && (
+                          <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest flex items-center gap-1">
+                            <CheckCircle2 className="w-2.5 h-2.5" /> Draft Saved {new Date(lastSavedTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>

@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Worksheet, QuestionType, ThemeType, Question } from '../types';
 import { 
@@ -40,7 +41,6 @@ export const WorksheetView: React.FC<WorksheetViewProps> = ({ worksheet, theme }
   };
 
   // Filter questions by role
-  // Vocabulary and Short Answer get special "Tracing" treatment in Creative mode
   const drillItems = worksheet.questions.filter(q => 
     q.type === QuestionType.CHARACTER_DRILL
   );
@@ -66,6 +66,9 @@ export const WorksheetView: React.FC<WorksheetViewProps> = ({ worksheet, theme }
   return (
     <div className={`max-w-[210mm] mx-auto bg-white p-[12mm] shadow-lg min-h-[297mm] relative transition-all duration-500 overflow-hidden ${isCreative ? 'font-handwriting-body border-[1px] border-slate-100' : 'font-sans'}`}>
       
+      {/* Functional Cutting Guide Border */}
+      <div className={`absolute inset-2 pointer-events-none border border-dashed rounded-sm z-0 ${isCreative ? 'border-slate-200' : 'border-slate-300'} opacity-60`}></div>
+
       {/* Decorative Doodles for Creative Theme */}
       {isCreative && (
         <>
@@ -137,7 +140,7 @@ export const WorksheetView: React.FC<WorksheetViewProps> = ({ worksheet, theme }
               <div key={q.id} className="mt-8">
                 {isCreative ? (
                   <SketchyBorderBox className="bg-slate-50/30">
-                    <p className="font-handwriting-header text-2xl mb-4 text-slate-600">Symbol Precision Training:</p>
+                    <p className="font-handwriting-header text-2xl mb-4 text-slate-600">Symbol Practice Area:</p>
                     <SymbolDrillRow symbols={q.correctAnswer} />
                   </SketchyBorderBox>
                 ) : (
@@ -202,65 +205,62 @@ export const WorksheetView: React.FC<WorksheetViewProps> = ({ worksheet, theme }
           </div>
         )}
 
-        {/* SECTION: LONG RESPONSE & CHALLENGES */}
+        {/* SECTION: WRITING & TRACING LAB */}
         {responseItems.length > 0 && (
           <div className="space-y-12">
-            {isCreative ? <HandDrawnDivider label="Writing & Tracing Lab" /> : <h2 className="text-xl font-bold border-b pb-2">Part 3: Written Responses</h2>}
+            {isCreative ? <HandDrawnDivider label="Writing Lab" /> : <h2 className="text-xl font-bold border-b pb-2">Part 3: Written Responses</h2>}
             
             <div className="space-y-20">
-              {responseItems.map((q, idx) => (
-                <div key={q.id} className="flex flex-col gap-6">
-                  <div className="flex items-start gap-4">
-                    {isCreative ? <QuestionIcon type="CHALLENGE" index={idx} /> : <span className="font-bold text-slate-400">{idx + 1}.</span>}
-                    <div className="flex-1">
-                      <p className={`text-2xl font-black leading-tight ${isCreative ? 'font-handwriting-header text-slate-800' : 'text-slate-900'}`}>
-                        {q.question}
-                      </p>
-                      {q.explanation && isCreative && <p className="text-xs text-slate-400 mt-2 italic leading-relaxed">Context: {q.explanation}</p>}
+              {responseItems.map((q, idx) => {
+                const isTracingRequested = q.type === QuestionType.VOCABULARY || q.type === QuestionType.SENTENCE_DRILL;
+                return (
+                  <div key={q.id} className="flex flex-col gap-6">
+                    <div className="flex items-start gap-4">
+                      {isCreative ? <QuestionIcon type="CHALLENGE" index={idx} /> : <span className="font-bold text-slate-400">{idx + 1}.</span>}
+                      <div className="flex-1">
+                        <p className={`text-2xl font-black leading-tight ${isCreative ? 'font-handwriting-header text-slate-800' : 'text-slate-900'}`}>
+                          {q.question}
+                        </p>
+                        {q.explanation && isCreative && <p className="text-xs text-slate-400 mt-2 italic leading-relaxed">Context: {q.explanation}</p>}
+                      </div>
                     </div>
-                  </div>
-                  
-                  {isCreative ? (
-                    <div className="space-y-12 ml-12 bg-slate-50/20 p-8 rounded-[2rem] border border-dashed border-slate-100">
-                      <div className="grid grid-cols-1 gap-12">
-                        {/* Reference & Trace Step */}
-                        <div className="flex items-end gap-12 border-b-2 border-slate-100 pb-4 relative">
-                          <div className="flex flex-col gap-1">
-                            <span className="text-[8px] font-black uppercase text-slate-300 tracking-[0.2em]">1. Reference</span>
+                    
+                    {isCreative ? (
+                      <div className="ml-12 bg-slate-50/20 p-8 rounded-[2rem] border border-dashed border-slate-100 space-y-10">
+                        {isTracingRequested && (
+                          <div className="flex flex-col gap-1 border-b-2 border-slate-100 pb-6 relative">
+                            <span className="text-[8px] font-black uppercase text-slate-300 tracking-[0.2em] mb-2">Reference to follow</span>
                             <div className="text-4xl font-black text-slate-800 tracking-wide">{q.correctAnswer}</div>
+                            <div className="absolute -right-4 -top-8 opacity-10 rotate-12">
+                               <HelenCharacter />
+                            </div>
                           </div>
-                          <div className="flex flex-col gap-1">
-                            <span className="text-[8px] font-black uppercase text-slate-300 tracking-[0.2em]">2. Trace</span>
-                            <div className="text-4xl font-bold text-slate-200 tracking-wide select-none">{q.correctAnswer}</div>
-                          </div>
-                          <div className="absolute -right-4 -top-8 opacity-10 rotate-12">
-                             <HelenCharacter />
-                          </div>
-                        </div>
+                        )}
 
-                        {/* Your Turn Step */}
                         <div className="space-y-12">
                           <div className="flex justify-between items-center pr-4">
-                            <span className="text-[8px] font-black uppercase text-slate-400 tracking-[0.3em]">3. Your Turn (Practice Writing)</span>
+                            <span className="text-[8px] font-black uppercase text-slate-400 tracking-[0.3em]">
+                              {isTracingRequested ? "Practice Writing Below" : "Your Answer Space"}
+                            </span>
                             <MarkerHighlight className="text-[10px] uppercase font-bold text-yellow-800 px-3">Ample Writing Space</MarkerHighlight>
                           </div>
                           <div className="space-y-14">
-                            {[...Array(3)].map((_, i) => (
+                            {[...Array(isTracingRequested ? 3 : 5)].map((_, i) => (
                               <div key={i} className="border-b-2 border-slate-200/50 w-full relative h-4 dotted-line">
-                                <div className="absolute -top-8 left-0 text-[8px] text-slate-200 font-bold uppercase tracking-widest">Entry Line {i + 1}</div>
+                                <div className="absolute -top-8 left-0 text-[8px] text-slate-100 font-bold uppercase tracking-widest">Line {i + 1}</div>
                               </div>
                             ))}
                           </div>
                         </div>
                       </div>
-                    </div>
-                  ) : (
-                    <div className="ml-12 border-2 border-slate-50 rounded-xl p-10 h-64 bg-slate-50/30">
-                       <div className="h-full w-full border-b border-slate-200 border-dashed"></div>
-                    </div>
-                  )}
-                </div>
-              ))}
+                    ) : (
+                      <div className="ml-12 border-2 border-slate-50 rounded-xl p-10 h-64 bg-slate-50/30">
+                         <div className="h-full w-full border-b border-slate-200 border-dashed"></div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
@@ -272,7 +272,7 @@ export const WorksheetView: React.FC<WorksheetViewProps> = ({ worksheet, theme }
           <div className="flex justify-between items-end border-t border-slate-100 pt-8">
             <div className="flex gap-12 font-handwriting-header text-xl text-slate-400">
               <span className="rotate-1">Reflect</span>
-              <span className="-rotate-2">Trace</span>
+              <span className="-rotate-2">Practice</span>
               <span className="rotate-3">Master</span>
             </div>
             <div className="text-right space-y-1">

@@ -66,7 +66,8 @@ export const HelenCharacter = () => (
       <circle cx="42" cy="35" r="1.5" fill="black"/>
       <circle cx="58" cy="35" r="1.5" fill="black"/>
       <path d="M48 42C48 42 50 43.5 52 42" stroke="black" strokeWidth="1.5" strokeLinecap="round"/>
-      <rect x="75" y="40" width="8" height="45" rx="4" fill="white" stroke="black" strokeWidth="2" transform="rotate(10, 75, 40)"/>
+      <circle cx="45" cy="33" r="1" fill="white" opacity="0.4"/>
+      <circle cx="55" cy="33" r="1" fill="white" opacity="0.4"/>
     </svg>
     <div className="absolute -top-10 -right-28 w-32">
       <div className="relative bg-white border border-black rounded-xl p-2 text-[9px] leading-tight font-handwriting-body shadow-sm">
@@ -90,11 +91,7 @@ export const HandwritingLabels = () => (
       <HandDrawnArrow className="mt-1 rotate-12 opacity-30" />
     </div>
     <div className="text-center flex flex-col items-center">
-      <span className="font-handwriting-body text-[10px] italic leading-tight">Trace</span>
-      <HandDrawnArrow className="mt-1 -rotate-6 opacity-30" />
-    </div>
-    <div className="text-center flex flex-col items-center">
-      <span className="font-handwriting-body text-[10px] italic leading-tight">Your Turn</span>
+      <span className="font-handwriting-body text-[10px] italic leading-tight">Practice Area</span>
       <div className="w-16 h-[1px] bg-black mt-4 rounded-full opacity-20"></div>
     </div>
   </div>
@@ -103,7 +100,6 @@ export const HandwritingLabels = () => (
 export const DraggableLineRow: React.FC<{ text: string, isSmall?: boolean }> = ({ text, isSmall }) => (
   <div className={`flex items-center gap-4 py-1.5 border-b border-slate-100/50 ${isSmall ? 'gap-2' : 'gap-6'}`}>
     <div className={`font-handwriting-body text-slate-900 truncate font-bold ${isSmall ? 'text-lg w-12' : 'text-2xl w-24'}`}>{text}</div>
-    <div className={`font-handwriting-body text-slate-200 select-none ${isSmall ? 'text-lg w-12' : 'text-2xl w-24'}`}>{text}</div>
     <div className="flex-1 h-6 dotted-line opacity-40"></div>
   </div>
 );
@@ -111,7 +107,6 @@ export const DraggableLineRow: React.FC<{ text: string, isSmall?: boolean }> = (
 export const SymbolDrillRow: React.FC<{ symbols: string }> = ({ symbols }) => (
   <div className="flex flex-col gap-2 py-4">
     <div className="font-handwriting-body text-3xl tracking-[0.5em] text-slate-900 font-bold">{symbols}</div>
-    <div className="font-handwriting-body text-3xl tracking-[0.5em] text-slate-200 select-none">{symbols}</div>
     <div className="h-12 dotted-line opacity-40 w-full"></div>
   </div>
 );
