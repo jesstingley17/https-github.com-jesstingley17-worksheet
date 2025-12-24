@@ -1,4 +1,3 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
 import { Worksheet, QuestionType } from "../types";
 
@@ -49,33 +48,44 @@ export async function generateWorksheet(options: GenerationOptions): Promise<Wor
     .map(([type, count]) => `- ${count} items of type ${type}`)
     .join('\n');
 
+  const isSeniorLevel = gradeLevel === 'High School' || gradeLevel === 'University';
+
   const systemInstruction = `
-    You are an expert educational content creator for "Homework Hero". 
-    Your mission is to generate a high-quality, professional worksheet.
+    You are an expert senior academic content developer for "Homework Hero". 
+    Your mission is to generate a rigorous, fack-checked, and professional worksheet.
     
+    ACADEMIC RIGOR & TONE:
+    - Grade Level: ${gradeLevel}
+    - Difficulty: ${difficulty}
+    - Language: ${language}
+    - For ${gradeLevel} and above, the tone must be serious, professional, and dense. Avoid "fun" or juvenile language.
+    - Factual accuracy is paramount. Use precise academic terminology.
+
+    NO-TRACING RULE FOR SENIOR LEVELS:
+    - If the Grade Level is "High School" or "University":
+      - DO NOT generate any "tracing" or "copying" tasks. 
+      - Even if the user requests DRILL types, transform them into rigorous analytical questions. 
+      - Character/Sentence drills are strictly for primary education and MUST NOT appear in senior worksheets.
+      - Instead of tracing, focus on deep conceptual understanding, synthesis of information, and critical analysis.
+
     TITLE RULE:
     - If a specific title is provided: "${customTitle || 'None'}", use it.
-    - If no title is provided, generate a creative and relevant title based on the topic.
+    - If no title is provided, generate a formal academic title based on the topic.
 
-    RULES:
-    1. Grade Level: ${gradeLevel}
-    2. Difficulty: ${difficulty}
-    3. Language: ${language}
-    4. QUESTION MIX (Mandatory counts):
+    QUESTION MIX (Mandatory counts):
 ${countInstruction}
     
     5. Types definition:
-       - MCQ: Multiple choice (4 options)
-       - TF: True/False
-       - SHORT_ANSWER: Open response / Essay (No tracing, just provide the prompt)
-       - VOCABULARY: Word and its definition (Can be used for practice/tracing if requested)
-       - CHARACTER_DRILL: Single character practice
-       - SYMBOL_DRILL: Math/Science symbol practice
-       - SENTENCE_DRILL: Full sentence practice
+       - MCQ: Multiple choice (4 rigorous options)
+       - TF: True/False (Factually challenging)
+       - SHORT_ANSWER: Open response / Analytical essay
+       - VOCABULARY: Advanced terminology in context
+       - CHARACTER_DRILL: (Junior only) Single character practice
+       - SYMBOL_DRILL: (Junior/STEM) Symbol practice
+       - SENTENCE_DRILL: (Junior only) Narrative flow tracing
 
-    6. Tracing: If the user specifically asks for "tracing" in the topic or instructions, ensure VOCABULARY and SENTENCE_DRILL items have clear, copyable reference text.
-    7. Challenges: Mark complex items with "isChallenge: true".
-    8. Continuity: Synthesize all inputs into a single logical learning path.
+    6. Challenges: Mark complex, multi-step, or abstract reasoning items with "isChallenge: true".
+    7. Context: Synthesize all inputs (scans, text) into a logical and challenging academic assessment.
   `;
 
   parts.push({ text: systemInstruction });
@@ -87,17 +97,18 @@ ${countInstruction}
         mimeType: fileData.mimeType
       }
     });
-    parts.push({ text: "SCANNED DOCUMENT DATA: Analyze the attached image/PDF for primary facts." });
+    parts.push({ text: "SOURCE MATERIAL: Analyze the provided document for key academic concepts and data points." });
   }
 
   if (rawText) {
-    parts.push({ text: `PASTED CONTENT: Use this text as source:\n---\n${rawText}\n---` });
+    parts.push({ text: `REFERENCE TEXT:\n---\n${rawText}\n---` });
   }
 
-  parts.push({ text: `TOPIC/INSTRUCTIONS: ${topic}` });
+  parts.push({ text: `INSTRUCTIONAL FOCUS: ${topic}` });
 
+  // Use gemini-3-pro-preview for senior academic rigor
   const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
+    model: isSeniorLevel ? "gemini-3-pro-preview" : "gemini-3-flash-preview",
     contents: { parts },
     config: {
       responseMimeType: "application/json",
@@ -137,7 +148,6 @@ ${countInstruction}
 
   try {
     const data = JSON.parse(response.text || '{}');
-    // If user provided a title, override whatever the AI thought
     if (customTitle && customTitle.trim() !== "") {
       data.title = customTitle;
     }
