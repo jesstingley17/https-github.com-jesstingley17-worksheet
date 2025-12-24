@@ -19,9 +19,10 @@ interface WorksheetViewProps {
   theme: ThemeType;
   showKey?: boolean;
   showDoodles?: boolean;
+  isMathMode?: boolean;
 }
 
-export const WorksheetView: React.FC<WorksheetViewProps> = ({ worksheet, theme, showKey = false, showDoodles = false }) => {
+export const WorksheetView: React.FC<WorksheetViewProps> = ({ worksheet, theme, showKey = false, showDoodles = false, isMathMode = false }) => {
   const [userSelections, setUserSelections] = useState<Record<string, string>>({});
   const isCreative = theme === ThemeType.CREATIVE;
   const isClassic = theme === ThemeType.CLASSIC;
@@ -30,23 +31,16 @@ export const WorksheetView: React.FC<WorksheetViewProps> = ({ worksheet, theme, 
                         worksheet.educationalLevel.includes('University') || 
                         worksheet.educationalLevel.includes('Professional');
   
+  const isPreschool = worksheet.educationalLevel.includes("Preschool");
   const isClassicProfessional = isClassic && isSeniorLevel;
 
   const handleToggleSelection = (qId: string, value: string) => {
-    if (showKey) return; // Disable clicking when answer key is visible
+    if (showKey) return; 
     setUserSelections(prev => ({
       ...prev,
       [qId]: prev[qId] === value ? '' : value
     }));
   };
-
-  const getQuestionLength = (q: Question) => {
-    let len = q.question.length;
-    if (q.options) len += q.options.join('').length;
-    return len;
-  };
-
-  const isLongQuestion = (q: Question) => getQuestionLength(q) > 120;
 
   const getMcqGridCols = (options: string[] | undefined) => {
     if (!options) return 'grid-cols-1';
@@ -56,21 +50,97 @@ export const WorksheetView: React.FC<WorksheetViewProps> = ({ worksheet, theme, 
     return 'grid-cols-1';
   };
 
-  const drillItems = worksheet.questions.filter(q => q.type === QuestionType.CHARACTER_DRILL);
+  const drillItems = worksheet.questions.filter(q => q.type === QuestionType.CHARACTER_DRILL || q.type === QuestionType.SENTENCE_DRILL);
   const specialDrills = worksheet.questions.filter(q => q.type === QuestionType.SYMBOL_DRILL);
   const interactiveItems = worksheet.questions.filter(q => q.type === QuestionType.MCQ || q.type === QuestionType.TF);
-  const responseItems = worksheet.questions.filter(q => q.type === QuestionType.SHORT_ANSWER || q.type === QuestionType.VOCABULARY || q.type === QuestionType.SENTENCE_DRILL);
+  const responseItems = worksheet.questions.filter(q => q.type === QuestionType.SHORT_ANSWER || q.type === QuestionType.VOCABULARY);
 
   const canUseDoubleColumns = isCreative && drillItems.every(q => q.correctAnswer.length < 15);
 
-  const titleSizeClass = isCreative ? 'text-6xl text-center' : (isClassicProfessional ? 'text-base font-bold uppercase tracking-tight' : 'text-3xl font-black');
-  const questionSizeClass = isCreative ? 'text-xl' : (isClassicProfessional ? 'text-[11px] font-bold leading-tight' : 'text-lg font-bold');
-  const optionSizeClass = isCreative ? 'text-lg' : (isClassicProfessional ? 'text-[9.5px] leading-tight font-medium' : 'text-sm');
+  const titleSizeClass = isPreschool ? 'text-7xl text-center' : isCreative ? 'text-6xl text-center' : (isClassicProfessional ? 'text-base font-bold uppercase tracking-tight' : 'text-3xl font-black');
   
-  const sectionSpacingClass = isClassicProfessional ? 'space-y-4' : 'space-y-12';
-  const itemSpacingClass = isClassicProfessional ? 'space-y-3' : 'space-y-10';
+  // Math Mode Font Size logic
+  const mathBaseSize = isMathMode ? 'text-xl' : 'text-[11px]';
+  const mathHeaderSize = isMathMode ? 'text-3xl' : 'text-2xl';
+  
+  const questionSizeClass = isCreative ? 'text-xl' : (isClassicProfessional ? `${mathBaseSize} font-bold leading-relaxed` : 'text-lg font-bold');
+  const optionSizeClass = isCreative ? 'text-lg' : (isClassicProfessional ? `${isMathMode ? 'text-lg' : 'text-[9.5px]'} leading-loose font-medium` : 'text-sm');
+  
+  const sectionSpacingClass = isClassicProfessional ? (isMathMode ? 'space-y-12' : 'space-y-4') : 'space-y-12';
+  const itemSpacingClass = isClassicProfessional ? (isMathMode ? 'space-y-10' : 'space-y-3') : 'space-y-10';
 
   const headerPadding = isClassicProfessional ? 'pb-1.5 mb-2.5' : 'pb-6 mb-10';
+
+  if (isPreschool) {
+    const tracingItems = worksheet.questions.filter(q => q.type === QuestionType.SENTENCE_DRILL);
+    
+    return (
+      <div 
+        id="worksheet-content" 
+        className="max-w-[210mm] mx-auto bg-white p-[15mm] shadow-lg min-h-[297mm] relative transition-all duration-500 overflow-hidden font-handwriting-body border border-slate-200"
+      >
+        <DoodleCorner position="tl" />
+        <DoodleCorner position="tr" />
+        <DoodleCorner position="bl" />
+        <DoodleCorner position="br" />
+
+        <div className="text-center mb-10 border-b-4 border-slate-100 pb-8">
+          <h1 className={`${titleSizeClass} font-handwriting-header text-slate-900 mb-6`}>
+            {worksheet.title}
+          </h1>
+          <div className="flex justify-center gap-12 mt-8">
+            <div className="flex flex-col items-start">
+               <span className="text-xs font-black uppercase text-slate-400">My Name:</span>
+               <div className="w-64 border-b-2 border-slate-900 h-10"></div>
+            </div>
+            <div className="flex flex-col items-start">
+               <span className="text-xs font-black uppercase text-slate-400">Today's Date:</span>
+               <div className="w-48 border-b-2 border-slate-900 h-10"></div>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex flex-col items-center justify-center p-8 bg-slate-50 rounded-[3rem] border-4 border-dashed border-slate-200 min-h-[400px] mb-8">
+          {worksheet.coloringImage ? (
+            <div className="w-full flex flex-col items-center">
+              <img 
+                src={worksheet.coloringImage} 
+                alt="Preschool Coloring Subject" 
+                className="max-w-full rounded-2xl shadow-sm mix-blend-multiply h-96 object-contain" 
+              />
+              <p className="mt-8 font-handwriting-header text-3xl text-slate-700 italic">"Let's color the {worksheet.topic}!"</p>
+            </div>
+          ) : (
+            <div className="text-center">
+               <p className="text-4xl font-handwriting-header text-slate-400">Coloring Area</p>
+               <p className="mt-4 text-xl">Draw your favorite {worksheet.topic} here!</p>
+            </div>
+          )}
+        </div>
+
+        {tracingItems.length > 0 && (
+          <div className="mt-10 space-y-8">
+            <HandDrawnDivider label="Let's Trace!" />
+            <div className="space-y-12 px-6">
+              {tracingItems.map((q, i) => (
+                <div key={q.id} className="relative">
+                   <p className="text-xs font-black uppercase text-slate-400 tracking-widest mb-4">Activity {i+1}: Trace the letters</p>
+                   <DraggableLineRow text={q.correctAnswer} />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="mt-auto pt-10 flex justify-between items-center opacity-60">
+          <HelenCharacter />
+          <div className="text-right">
+             <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Homework Hero for Preschoolers</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div 
@@ -185,18 +255,18 @@ export const WorksheetView: React.FC<WorksheetViewProps> = ({ worksheet, theme, 
         )}
 
         {interactiveItems.length > 0 && (
-          <div className={`${isClassicProfessional ? 'space-y-2' : 'space-y-8'}`}>
+          <div className={`${isClassicProfessional ? (isMathMode ? 'space-y-6' : 'space-y-2') : 'space-y-8'}`}>
             {isClassicProfessional ? (
-              <h2 className="text-[9px] font-black text-slate-900 border-b border-slate-800 inline-block mb-1">PART A: OBJECTIVE ASSESSMENT</h2>
+              <h2 className={`${isMathMode ? 'text-sm' : 'text-[9px]'} font-black text-slate-900 border-b border-slate-800 inline-block mb-1`}>PART A: OBJECTIVE ASSESSMENT</h2>
             ) : (isCreative || showDoodles) ? <HandDrawnDivider label="Assessment" /> : <h2 className="text-2xl font-black text-slate-800 border-l-4 border-blue-600 pl-4 py-1">Knowledge Check</h2>}
             
             <div className={itemSpacingClass}>
               {interactiveItems.map((q, idx) => {
-                const isLong = isLongQuestion(q);
+                const isLong = q.question.length > 120;
                 return (
                   <div key={q.id} className={`flex flex-col gap-1 ${isLong ? 'col-span-full' : ''}`}>
                     <div className="flex items-start gap-2">
-                      {(isCreative || (showDoodles && !isSeniorLevel)) ? <QuestionIcon type={q.type} index={idx} /> : <span className={`font-bold text-slate-900 ${isClassicProfessional ? 'text-[11px]' : 'text-lg'}`}>{idx + 1}.</span>}
+                      {(isCreative || (showDoodles && !isSeniorLevel)) ? <QuestionIcon type={q.type} index={idx} /> : <span className={`font-bold text-slate-900 ${isClassicProfessional ? (isMathMode ? 'text-xl' : 'text-[11px]') : 'text-lg'}`}>{idx + 1}.</span>}
                       <p 
                         contentEditable={isClassic} 
                         suppressContentEditableWarning={true}
@@ -208,7 +278,7 @@ export const WorksheetView: React.FC<WorksheetViewProps> = ({ worksheet, theme, 
                     </div>
                     
                     {q.type === QuestionType.MCQ && (
-                      <div className={`grid gap-0.5 ml-6 ${getMcqGridCols(q.options)}`}>
+                      <div className={`grid ${isMathMode ? 'gap-4 mt-2' : 'gap-0.5'} ml-6 ${getMcqGridCols(q.options)}`}>
                         {q.options?.map((opt, i) => {
                           const isSelected = userSelections[q.id] === opt;
                           const isOfficial = showKey && opt === q.correctAnswer;
@@ -217,17 +287,17 @@ export const WorksheetView: React.FC<WorksheetViewProps> = ({ worksheet, theme, 
                             <div 
                               key={i} 
                               onClick={() => handleToggleSelection(q.id, opt)}
-                              className={`flex items-center gap-1.5 group cursor-pointer p-0.5 rounded-sm transition-all no-print ${
+                              className={`flex items-center ${isMathMode ? 'gap-3 p-2' : 'gap-1.5 p-0.5'} group cursor-pointer rounded-sm transition-all no-print ${
                                 isSelected ? (isCreative ? 'bg-yellow-50/80' : 'bg-blue-50') : 'hover:bg-slate-50'
                               }`}
                             >
-                              <div className={`${isClassicProfessional ? 'w-2.5 h-2.5' : 'w-6 h-6'} flex-shrink-0 border transition-colors ${
+                              <div className={`${isClassicProfessional ? (isMathMode ? 'w-6 h-6' : 'w-2.5 h-2.5') : 'w-6 h-6'} flex-shrink-0 border transition-colors ${
                                 isCreative ? 'border-slate-300 rotate-2' : 'border-slate-900 rounded-none'
                               } flex items-center justify-center ${
                                 isOfficial ? 'bg-red-500 border-red-500' : (isSelected ? 'bg-blue-600 border-blue-600' : '')
                               }`}>
-                                {isCreative && !showKey && !isSelected && <span className="text-[10px] text-slate-300 font-bold">{String.fromCharCode(65 + i)}</span>}
-                                {(isOfficial || isSelected) && <span className="text-white text-[6px] font-bold">{isOfficial ? 'X' : '✓'}</span>}
+                                {isCreative && !showKey && !isSelected && <span className={`${isMathMode ? 'text-sm' : 'text-[10px]'} text-slate-300 font-bold`}>{String.fromCharCode(65 + i)}</span>}
+                                {(isOfficial || isSelected) && <span className={`text-white ${isMathMode ? 'text-xs' : 'text-[6px]'} font-bold`}>{isOfficial ? 'X' : '✓'}</span>}
                               </div>
                               <span 
                                 contentEditable={isClassic} 
@@ -245,7 +315,7 @@ export const WorksheetView: React.FC<WorksheetViewProps> = ({ worksheet, theme, 
                     )}
                     
                     {q.type === QuestionType.TF && (
-                      <div className={`flex gap-6 ${isClassicProfessional ? 'ml-6' : 'ml-12'}`}>
+                      <div className={`flex gap-6 ${isClassicProfessional ? 'ml-6' : 'ml-12'} ${isMathMode ? 'mt-4' : ''}`}>
                          {['True', 'False'].map((v) => {
                            const isSelected = userSelections[q.id] === v;
                            const isOfficial = showKey && v === q.correctAnswer;
@@ -254,18 +324,18 @@ export const WorksheetView: React.FC<WorksheetViewProps> = ({ worksheet, theme, 
                              <div 
                                key={v} 
                                onClick={() => handleToggleSelection(q.id, v)}
-                               className={`flex items-center gap-1.5 group cursor-pointer p-1 rounded-lg transition-all no-print ${
+                               className={`flex items-center ${isMathMode ? 'gap-4 p-3' : 'gap-1.5 p-1'} group cursor-pointer rounded-lg transition-all no-print ${
                                  isSelected ? (isCreative ? 'bg-yellow-50' : 'bg-blue-50') : 'hover:bg-slate-50'
                                }`}
                              >
-                               <div className={`${isClassicProfessional ? 'w-3 h-3' : 'w-8 h-8'} border transition-colors ${
+                               <div className={`${isClassicProfessional ? (isMathMode ? 'w-8 h-8' : 'w-3 h-3') : 'w-8 h-8'} border transition-colors ${
                                  isCreative ? 'border-slate-200 rotate-3' : 'border-slate-900 rounded-none'
-                               } flex items-center justify-center text-[7px] ${
+                               } flex items-center justify-center ${isMathMode ? 'text-sm' : 'text-[7px]'} ${
                                  isOfficial ? 'bg-red-600 border-red-600 text-white' : (isSelected ? 'bg-blue-600 border-blue-600 text-white' : 'opacity-30')
                                }`}>
                                  {isOfficial ? '✓' : (isSelected ? '✓' : v.charAt(0))}
                                </div> 
-                               <span className={`${isClassicProfessional ? 'text-[9px]' : 'text-lg'} font-bold transition-colors ${
+                               <span className={`${isClassicProfessional ? (isMathMode ? 'text-xl' : 'text-[9px]') : 'text-lg'} font-bold transition-colors ${
                                  isOfficial ? 'text-red-700' : (isSelected ? 'text-blue-800' : 'text-slate-800')
                                }`}>
                                  {v}
@@ -283,29 +353,29 @@ export const WorksheetView: React.FC<WorksheetViewProps> = ({ worksheet, theme, 
         )}
 
         {responseItems.length > 0 && (
-          <div className={`${isClassicProfessional ? 'space-y-2.5' : 'space-y-12'}`}>
+          <div className={`${isClassicProfessional ? (isMathMode ? 'space-y-10' : 'space-y-2.5') : 'space-y-12'}`}>
             {isClassicProfessional ? (
-              <h2 className="text-[9px] font-black text-slate-900 border-b border-slate-800 inline-block mb-1">PART B: ANALYTICAL SYNTHESIS</h2>
+              <h2 className={`${isMathMode ? 'text-sm' : 'text-[9px]'} font-black text-slate-900 border-b border-slate-800 inline-block mb-1`}>PART B: ANALYTICAL SYNTHESIS</h2>
             ) : (isCreative || showDoodles) ? <HandDrawnDivider label="Analysis Lab" /> : <h2 className="text-2xl font-black text-slate-800 border-l-4 border-blue-600 pl-4 py-1">Written Assessment</h2>}
             
-            <div className={isClassicProfessional ? 'space-y-3.5' : 'space-y-20'}>
+            <div className={isClassicProfessional ? (isMathMode ? 'space-y-16' : 'space-y-3.5') : 'space-y-20'}>
               {responseItems.map((q, idx) => {
                 const isTracingRequested = !isSeniorLevel && (q.type === QuestionType.VOCABULARY || q.type === QuestionType.SENTENCE_DRILL);
                 const isExpandedType = q.type === QuestionType.SHORT_ANSWER || q.type === QuestionType.VOCABULARY;
                 const lineCount = isClassicProfessional ? (isExpandedType ? 5 : 4) : (isExpandedType ? 6 : 5);
                 const minHeightClass = isClassicProfessional 
-                  ? (isExpandedType ? 'min-h-[75px]' : 'min-h-[50px]') 
+                  ? (isExpandedType ? (isMathMode ? 'min-h-[250px]' : 'min-h-[75px]') : (isMathMode ? 'min-h-[150px]' : 'min-h-[50px]')) 
                   : (isExpandedType ? 'min-h-80' : 'min-h-64');
 
                 return (
                   <div key={q.id} className={`flex flex-col ${isClassicProfessional ? 'gap-0.5' : 'gap-6'}`}>
                     <div className="flex items-start gap-2">
-                      {(isCreative || (showDoodles && !isSeniorLevel)) ? <QuestionIcon type="CHALLENGE" index={idx} /> : <span className={`font-bold text-slate-900 ${isClassicProfessional ? 'text-[11px]' : 'text-lg'}`}>{idx + 1}.</span>}
+                      {(isCreative || (showDoodles && !isSeniorLevel)) ? <QuestionIcon type="CHALLENGE" index={idx} /> : <span className={`font-bold text-slate-900 ${isClassicProfessional ? (isMathMode ? 'text-xl' : 'text-[11px]') : 'text-lg'}`}>{idx + 1}.</span>}
                       <div className="flex-1">
                         <p 
                           contentEditable={isClassic} 
                           suppressContentEditableWarning={true}
-                          className={`${isClassicProfessional ? 'text-[11px] font-bold' : 'text-2xl font-black'} leading-tight outline-none ${isCreative ? 'font-handwriting-header text-slate-800' : 'text-slate-900 hover:bg-slate-50'}`}
+                          className={`${isClassicProfessional ? (isMathMode ? 'text-xl font-bold' : 'text-[11px] font-bold') : 'text-2xl font-black'} leading-tight outline-none ${isCreative ? 'font-handwriting-header text-slate-800' : 'text-slate-900 hover:bg-slate-50'}`}
                         >
                           {q.question}
                         </p>
@@ -332,7 +402,7 @@ export const WorksheetView: React.FC<WorksheetViewProps> = ({ worksheet, theme, 
                           </div>
                         )}
 
-                        <div className={`${isClassicProfessional ? 'space-y-0' : 'space-y-10'} relative`}>
+                        <div className={`${isClassicProfessional ? (isMathMode ? 'space-y-4' : 'space-y-0') : 'space-y-10'} relative`}>
                           {!isClassicProfessional && (
                             <div className="flex justify-between items-center px-1">
                               <span className="text-[6px] font-bold uppercase text-slate-400 tracking-wider">
@@ -342,14 +412,14 @@ export const WorksheetView: React.FC<WorksheetViewProps> = ({ worksheet, theme, 
                             </div>
                           )}
                           
-                          <div className={`${isClassicProfessional ? 'space-y-0' : 'space-y-5'} relative`}>
+                          <div className={`${isClassicProfessional ? (isMathMode ? 'space-y-4' : 'space-y-0') : 'space-y-5'} relative`}>
                             {[...Array(lineCount)].map((_, i) => (
-                              <div key={i} className={`border-b border-slate-200 w-full relative ${isClassicProfessional ? 'h-[20px]' : 'h-6'}`}>
+                              <div key={i} className={`border-b border-slate-200 w-full relative ${isClassicProfessional ? (isMathMode ? 'h-[50px]' : 'h-[20px]') : 'h-6'}`}>
                               </div>
                             ))}
                             {showKey && (
-                              <div className="absolute inset-0 flex flex-col pt-0 text-red-600 font-bold text-[10px] italic pointer-events-none opacity-70">
-                                <p className={`${isClassicProfessional ? 'leading-[20px] mt-0.5 ml-1' : ''}`}>{q.correctAnswer}</p>
+                              <div className={`absolute inset-0 flex flex-col pt-0 text-red-600 font-bold ${isMathMode ? 'text-lg' : 'text-[10px]'} italic pointer-events-none opacity-70`}>
+                                <p className={`${isClassicProfessional ? (isMathMode ? 'leading-[50px]' : 'leading-[20px] mt-0.5 ml-1') : ''}`}>{q.correctAnswer}</p>
                                 {!isClassicProfessional && <p className="text-[8px] mt-2 opacity-60 leading-tight">Rationale: {q.explanation}</p>}
                               </div>
                             )}

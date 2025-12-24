@@ -52,7 +52,10 @@ import {
   Lock,
   Award,
   Search,
-  FileStack
+  FileStack,
+  Palette,
+  MousePointer2,
+  Sigma
 } from 'lucide-react';
 
 const WorksheetSkeleton: React.FC<{ theme: ThemeType }> = ({ theme }) => {
@@ -105,6 +108,7 @@ const App: React.FC = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [lastSavedTime, setLastSavedTime] = useState<number | null>(null);
   const [showTeacherKey, setShowTeacherKey] = useState(false);
+  const [isMathMode, setIsMathMode] = useState(false);
   
   const [formData, setFormData] = useState<{
     topic: string;
@@ -114,6 +118,7 @@ const App: React.FC = () => {
     language: string;
     rawText: string;
     pageCount: number;
+    includeTracing: boolean;
     questionCounts: Record<QuestionType, number>;
   }>({
     topic: '',
@@ -123,6 +128,7 @@ const App: React.FC = () => {
     language: 'English',
     rawText: '',
     pageCount: 1,
+    includeTracing: false,
     questionCounts: {
       [QuestionType.MCQ]: 2,
       [QuestionType.TF]: 2,
@@ -185,18 +191,23 @@ const App: React.FC = () => {
     "Professional / Adult"
   ];
 
+  const isPreschool = formData.educationalLevel.includes("Preschool");
   const isSeniorLevel = 
     formData.educationalLevel === 'High School' || 
     formData.educationalLevel === 'University / College' || 
     formData.educationalLevel === 'Professional / Adult';
 
-  // Force Classic theme for senior levels
+  // Force Creative/Doodles for Preschool, Classic for Senior
   useEffect(() => {
     if (isSeniorLevel && theme === ThemeType.CREATIVE) {
       setTheme(ThemeType.CLASSIC);
       setShowDoodles(false);
     }
-  }, [formData.educationalLevel, isSeniorLevel, theme]);
+    if (isPreschool) {
+      setTheme(ThemeType.CREATIVE);
+      setShowDoodles(true);
+    }
+  }, [formData.educationalLevel, isSeniorLevel, isPreschool, theme]);
 
   const totalQuestions = (Object.values(formData.questionCounts) as number[]).reduce((a: number, b: number) => a + b, 0);
 
@@ -318,6 +329,7 @@ const App: React.FC = () => {
         language: 'English',
         rawText: '',
         pageCount: 1,
+        includeTracing: false,
         questionCounts: {
           [QuestionType.MCQ]: 2,
           [QuestionType.TF]: 2,
@@ -398,7 +410,7 @@ const App: React.FC = () => {
   };
 
   const handleGenerate = async () => {
-    if (totalQuestions === 0) {
+    if (!isPreschool && totalQuestions === 0) {
       alert("Please select at least one question type count.");
       return;
     }
@@ -417,6 +429,7 @@ const App: React.FC = () => {
         language: formData.language,
         questionCounts: formData.questionCounts,
         pageTarget: formData.pageCount,
+        includeTracing: formData.includeTracing,
         fileData: fileData || undefined,
         rawText: formData.rawText || undefined,
       });
@@ -549,48 +562,50 @@ const App: React.FC = () => {
             </div>
           </div>
 
-          <div>
-            <h3 className="text-xs uppercase tracking-widest text-slate-400 font-bold mb-4 flex items-center gap-2">
-              <Settings className="w-3 h-3" /> Layout Style
-            </h3>
-            <div className="space-y-4">
-              <div className="flex bg-slate-100 p-1 rounded-xl">
-                <button onClick={() => setTheme(ThemeType.CLASSIC)} className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-bold transition-all ${theme === ThemeType.CLASSIC ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500'}`}>
-                  <Layout className="w-4 h-4" /> Classic
-                </button>
-                <button 
-                  disabled={isSeniorLevel}
-                  onClick={() => setTheme(ThemeType.CREATIVE)} 
-                  className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-bold transition-all ${theme === ThemeType.CREATIVE ? 'bg-white shadow-sm text-yellow-600' : 'text-slate-400 disabled:opacity-40 disabled:cursor-not-allowed'}`}
-                  title={isSeniorLevel ? "Creative mode is disabled for senior levels" : ""}
-                >
-                  {isSeniorLevel ? <Lock className="w-3 h-3" /> : <Sparkles className="w-4 h-4" />} Creative
-                </button>
-              </div>
-              
-              <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
-                <div className="flex flex-col">
-                  <span className={`text-xs font-bold ${isSeniorLevel ? 'text-slate-400' : 'text-slate-700'}`}>Visual Doodles</span>
-                  <span className="text-[9px] text-slate-400 uppercase font-black">Professional Auto-Enforce</span>
+          {!isPreschool && (
+            <div>
+              <h3 className="text-xs uppercase tracking-widest text-slate-400 font-bold mb-4 flex items-center gap-2">
+                <Settings className="w-3 h-3" /> Layout Style
+              </h3>
+              <div className="space-y-4">
+                <div className="flex bg-slate-100 p-1 rounded-xl">
+                  <button onClick={() => setTheme(ThemeType.CLASSIC)} className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-bold transition-all ${theme === ThemeType.CLASSIC ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500'}`}>
+                    <Layout className="w-4 h-4" /> Classic
+                  </button>
+                  <button 
+                    disabled={isSeniorLevel}
+                    onClick={() => setTheme(ThemeType.CREATIVE)} 
+                    className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-bold transition-all ${theme === ThemeType.CREATIVE ? 'bg-white shadow-sm text-yellow-600' : 'text-slate-400 disabled:opacity-40 disabled:cursor-not-allowed'}`}
+                    title={isSeniorLevel ? "Creative mode is disabled for senior levels" : ""}
+                  >
+                    {isSeniorLevel ? <Lock className="w-3 h-3" /> : <Sparkles className="w-4 h-4" />} Creative
+                  </button>
                 </div>
-                <button 
-                  disabled={isSeniorLevel}
-                  onClick={() => setShowDoodles(!showDoodles)}
-                  className={`transition-colors ${isSeniorLevel ? 'text-slate-200 cursor-not-allowed' : 'text-slate-400 hover:text-blue-500'}`}
-                >
-                  {showDoodles && !isSeniorLevel ? <ToggleRight className="w-8 h-8 text-blue-500" /> : <ToggleLeft className="w-8 h-8" />}
-                </button>
-              </div>
-              {isSeniorLevel && (
-                <div className="p-2 bg-blue-50/50 rounded-lg border border-blue-100/50">
-                   <p className="text-[9px] text-blue-600 font-bold leading-tight flex items-start gap-1.5">
-                     <Info className="w-3 h-3 flex-shrink-0" />
-                     Professional themes are mandatory for high school/university standards to ensure document integrity.
-                   </p>
+                
+                <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
+                  <div className="flex flex-col">
+                    <span className={`text-xs font-bold ${isSeniorLevel ? 'text-slate-400' : 'text-slate-700'}`}>Visual Doodles</span>
+                    <span className="text-[9px] text-slate-400 uppercase font-black">Professional Auto-Enforce</span>
+                  </div>
+                  <button 
+                    disabled={isSeniorLevel}
+                    onClick={() => setShowDoodles(!showDoodles)}
+                    className={`transition-colors ${isSeniorLevel ? 'text-slate-200 cursor-not-allowed' : 'text-slate-400 hover:text-blue-500'}`}
+                  >
+                    {showDoodles && !isSeniorLevel ? <ToggleRight className="w-8 h-8 text-blue-500" /> : <ToggleLeft className="w-8 h-8" />}
+                  </button>
                 </div>
-              )}
+                {isSeniorLevel && (
+                  <div className="p-2 bg-blue-50/50 rounded-lg border border-blue-100/50">
+                    <p className="text-[9px] text-blue-600 font-bold leading-tight flex items-start gap-1.5">
+                      <Info className="w-3 h-3 flex-shrink-0" />
+                      Professional themes are mandatory for high school/university standards to ensure document integrity.
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+          )}
 
           <div>
             <h3 className="text-xs uppercase tracking-widest text-slate-400 font-bold mb-4 flex items-center gap-2">
@@ -603,7 +618,7 @@ const App: React.FC = () => {
               <button onClick={() => worksheet && setMode(AppMode.WORKSHEET)} disabled={!worksheet} className={`w-full flex items-center gap-3 p-3 rounded-xl font-medium transition-all ${mode === AppMode.WORKSHEET ? 'bg-slate-100 text-slate-900' : 'text-slate-500 hover:bg-slate-50 disabled:opacity-30'}`}>
                 <FileText className="w-5 h-5" /> Active Sheet
               </button>
-              <button onClick={() => worksheet && setMode(AppMode.QUIZ)} disabled={!worksheet} className={`w-full flex items-center gap-3 p-3 rounded-xl font-medium transition-all ${mode === AppMode.QUIZ ? 'bg-slate-100 text-slate-900' : 'text-slate-500 hover:bg-slate-50 disabled:opacity-30'}`}>
+              <button onClick={() => worksheet && setMode(AppMode.QUIZ)} disabled={!worksheet || isPreschool} className={`w-full flex items-center gap-3 p-3 rounded-xl font-medium transition-all ${mode === AppMode.QUIZ ? 'bg-slate-100 text-slate-900' : 'text-slate-500 hover:bg-slate-50 disabled:opacity-30'}`}>
                 <PlayCircle className="w-5 h-5" /> Digital Practice
               </button>
             </div>
@@ -863,135 +878,168 @@ const App: React.FC = () => {
                             </div>
                           </div>
 
-                          <div className="mb-10 p-6 sm:p-8 bg-slate-50 rounded-[2rem] sm:rounded-[3rem] border border-slate-100 shadow-inner">
-                            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-8 gap-6">
-                              <div className="space-y-1">
-                                <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 mb-2">
-                                  <Zap className="w-4 h-4 text-yellow-500" /> Distribution Presets
-                                </h4>
-                                <div className="flex flex-wrap gap-2">
-                                  {Object.keys(presets).map(preset => (
-                                    <button 
-                                      key={preset} 
-                                      onClick={() => applyPreset(preset)} 
-                                      className={`px-4 py-2 sm:px-6 sm:py-3 border-2 rounded-xl sm:rounded-2xl font-bold text-xs sm:text-sm transition-all active:scale-95 shadow-sm flex items-center gap-2 ${
-                                        activePreset === preset 
-                                        ? 'bg-yellow-400 border-yellow-400 text-yellow-900 ring-4 ring-yellow-100' 
-                                        : 'bg-white border-slate-100 text-slate-600 hover:border-yellow-400 hover:text-yellow-600'
-                                      }`}
-                                    >
-                                      {activePreset === preset && <CheckCircle2 className="w-4 h-4" />}
-                                      {preset}
-                                    </button>
-                                  ))}
+                          {isPreschool ? (
+                             <div className="flex flex-col items-center justify-center p-8 sm:p-12 bg-yellow-50 rounded-[3rem] border-4 border-dashed border-yellow-200 text-center animate-in zoom-in duration-500">
+                                <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center shadow-xl mb-6">
+                                  <Palette className="w-12 h-12 text-yellow-500" />
                                 </div>
-                              </div>
-
-                              <div className="w-full lg:w-auto p-4 bg-white rounded-2xl border border-slate-100 shadow-sm">
-                                <div className="flex items-center gap-3 mb-3">
-                                  <FileStack className="w-4 h-4 text-blue-500" />
-                                  <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Document Target Length</span>
+                                <h4 className="text-3xl font-black text-slate-800 mb-4">Preschool Mode: Coloring Hero</h4>
+                                <p className="text-lg text-slate-600 font-medium max-w-lg mb-8 leading-relaxed">
+                                  For preschoolers, we create a specialized visual coloring page with simple labels. 
+                                  Complex questions and assessments are disabled to ensure they have fun learning!
+                                </p>
+                                
+                                <div className="flex flex-col sm:flex-row items-center gap-4">
+                                  <div className="px-8 py-3 bg-white text-yellow-700 rounded-full font-black uppercase text-xs tracking-widest shadow-sm border border-yellow-100">
+                                    Generating 1x High-Quality Coloring Image
+                                  </div>
+                                  
+                                  <button 
+                                    onClick={() => setFormData(prev => ({ ...prev, includeTracing: !prev.includeTracing }))}
+                                    className={`flex items-center gap-3 px-8 py-3 rounded-full font-black uppercase text-xs tracking-widest transition-all shadow-md active:scale-95 ${
+                                      formData.includeTracing 
+                                      ? 'bg-blue-600 text-white ring-4 ring-blue-100' 
+                                      : 'bg-white text-slate-400 border border-slate-200 hover:text-blue-600'
+                                    }`}
+                                  >
+                                    <MousePointer2 className="w-4 h-4" />
+                                    {formData.includeTracing ? 'Tracing Enabled' : 'Add Letter Tracing?'}
+                                  </button>
                                 </div>
-                                <div className="flex items-center gap-2">
-                                  {[1, 2, 3, 5].map(p => (
-                                    <button 
-                                      key={p} 
-                                      onClick={() => setFormData({...formData, pageCount: p})}
-                                      className={`flex-1 lg:w-10 lg:h-10 p-2 rounded-xl flex items-center justify-center text-sm font-black transition-all ${
-                                        formData.pageCount === p 
-                                        ? 'bg-blue-600 text-white shadow-lg scale-105' 
-                                        : 'bg-slate-50 text-slate-400 hover:bg-slate-100'
-                                      }`}
-                                    >
-                                      {p}
-                                    </button>
-                                  ))}
-                                  <span className="text-[10px] font-bold text-slate-300 ml-2 uppercase">Pages</span>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                          
-                          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-10">
-                            <div className="lg:col-span-4 space-y-6 sm:space-y-8">
-                              <div className="space-y-3">
-                                <label className="block text-xs font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Educational Level</label>
-                                <div className="p-4 sm:p-6 rounded-[1.5rem] sm:rounded-[2rem] bg-slate-100 border-2 border-slate-200 font-bold text-slate-500 cursor-not-allowed text-sm flex items-center justify-between">
-                                  {formData.educationalLevel}
-                                  <Lock className="w-4 h-4 opacity-30" />
-                                </div>
-                              </div>
-                              <div className="space-y-3">
-                                <label className="block text-xs font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Difficulty</label>
-                                <select className="w-full p-4 sm:p-6 rounded-[1.5rem] sm:rounded-[2rem] bg-slate-50 border-2 border-slate-100 focus:border-yellow-400 outline-none font-bold text-slate-700 transition-all hover:bg-white" value={formData.difficulty} onChange={(e) => setFormData({...formData, difficulty: e.target.value})}>
-                                  <option>Easy</option><option>Medium</option><option>Hard</option><option>Expert</option>
-                                </select>
-                              </div>
-                              <div className="space-y-3">
-                                <label className="block text-xs font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Language</label>
-                                <select className="w-full p-4 sm:p-6 rounded-[1.5rem] sm:rounded-[2rem] bg-slate-50 border-2 border-slate-100 focus:border-yellow-400 outline-none font-bold text-slate-700 transition-all hover:bg-white" value={formData.language} onChange={(e) => setFormData({...formData, language: e.target.value})}>
-                                  <option>English</option><option>Spanish</option><option>French</option><option>German</option><option>Chinese</option>
-                                </select>
-                              </div>
-                            </div>
-
-                            <div className="lg:col-span-4 bg-slate-50 rounded-[1.5rem] sm:rounded-[2.5rem] p-6 sm:p-8 border border-slate-100">
-                              <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-6 flex items-center justify-between">
-                                Item Distribution
-                                <span className={`px-2 py-0.5 rounded text-[10px] shadow-sm transition-colors ${totalQuestions === 0 ? 'bg-red-400 text-white' : 'bg-yellow-400 text-yellow-900'}`}>
-                                  Total: {totalQuestions}
-                                </span>
-                              </h4>
-                              <div className="space-y-3">
-                                {Object.entries(formData.questionCounts).map(([type, count]) => (
-                                  <div key={type} className="flex items-center justify-between bg-white p-2 px-4 rounded-xl sm:rounded-2xl shadow-sm border border-slate-50 hover:border-yellow-200 transition-colors group">
-                                    <div className="flex flex-col">
-                                       <span className="text-[8px] sm:text-[10px] font-black text-slate-300 uppercase leading-none mb-1 group-hover:text-yellow-600">{type.replace('_', ' ')}</span>
-                                       <span className="text-[10px] sm:text-xs font-bold text-slate-600 truncate max-w-[80px] sm:max-w-[100px]">{type.split('_').map(w => w[0] + w.slice(1).toLowerCase()).join(' ')}</span>
-                                    </div>
-                                    <div className="flex items-center gap-2 sm:gap-3">
-                                      <button onClick={() => updateCount(type as QuestionType, -1)} className="p-1 hover:bg-slate-100 rounded-lg text-slate-400 transition-colors"><Minus className="w-3 h-3 sm:w-4 sm:h-4" /></button>
-                                      <span className="w-3 sm:w-4 text-center font-black text-sm sm:text-base text-slate-800">{count}</span>
-                                      <button onClick={() => updateCount(type as QuestionType, 1)} className="p-1 hover:bg-slate-100 rounded-lg text-slate-400 transition-colors"><Plus className="w-3 h-3 sm:w-4 sm:h-4" /></button>
+                             </div>
+                          ) : (
+                            <>
+                              <div className="mb-10 p-6 sm:p-8 bg-slate-50 rounded-[2rem] sm:rounded-[3rem] border border-slate-100 shadow-inner">
+                                <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-8 gap-6">
+                                  <div className="space-y-1">
+                                    <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 mb-2">
+                                      <Zap className="w-4 h-4 text-yellow-500" /> Distribution Presets
+                                    </h4>
+                                    <div className="flex flex-wrap gap-2">
+                                      {Object.keys(presets).map(preset => (
+                                        <button 
+                                          key={preset} 
+                                          onClick={() => applyPreset(preset)} 
+                                          className={`px-4 py-2 sm:px-6 sm:py-3 border-2 rounded-xl sm:rounded-2xl font-bold text-xs sm:text-sm transition-all active:scale-95 shadow-sm flex items-center gap-2 ${
+                                            activePreset === preset 
+                                            ? 'bg-yellow-400 border-yellow-400 text-yellow-900 ring-4 ring-yellow-100' 
+                                            : 'bg-white border-slate-100 text-slate-600 hover:border-yellow-400 hover:text-yellow-600'
+                                          }`}
+                                        >
+                                          {activePreset === preset && <CheckCircle2 className="w-4 h-4" />}
+                                          {preset}
+                                        </button>
+                                      ))}
                                     </div>
                                   </div>
-                                ))}
-                              </div>
-                            </div>
 
-                            <div className="lg:col-span-4 space-y-4">
-                              <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest ml-2 flex items-center gap-2">
-                                <Info className="w-4 h-4 text-blue-500" /> Item Vocabulary
-                              </h4>
-                              <div className="bg-white rounded-[1.5rem] sm:rounded-[2rem] border border-slate-100 overflow-hidden shadow-sm overflow-x-auto">
-                                <table className="w-full text-left min-w-[200px]">
-                                  <thead>
-                                    <tr className="bg-slate-50 border-b border-slate-100">
-                                      <th className="px-3 sm:px-4 py-2 sm:py-3 text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-slate-400">Abbr.</th>
-                                      <th className="px-3 sm:px-4 py-2 sm:py-3 text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-slate-400">Outcome</th>
-                                    </tr>
-                                  </thead>
-                                  <tbody className="divide-y divide-slate-50">
-                                    {glossaryItems.map((item) => (
-                                      <tr key={item.id} className="hover:bg-slate-50 transition-colors group">
-                                        <td className="px-3 sm:px-4 py-2 sm:py-3">
-                                          <div className="flex items-center gap-2">
-                                            <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-slate-100 text-slate-400 flex items-center justify-center group-hover:bg-yellow-400 group-hover:text-white transition-colors shadow-sm">
-                                              {item.icon}
-                                            </div>
-                                            <span className="text-[9px] sm:text-[11px] font-black text-slate-700">{item.label}</span>
-                                          </div>
-                                        </td>
-                                        <td className="px-3 sm:px-4 py-2 sm:py-3 text-[8px] sm:text-[10px] font-medium text-slate-400 leading-tight">
-                                          {item.desc}
-                                        </td>
-                                      </tr>
-                                    ))}
-                                  </tbody>
-                                </table>
+                                  <div className="w-full lg:w-auto p-4 bg-white rounded-2xl border border-slate-100 shadow-sm">
+                                    <div className="flex items-center gap-3 mb-3">
+                                      <FileStack className="w-4 h-4 text-blue-500" />
+                                      <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Document Target Length</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      {[1, 2, 3, 5].map(p => (
+                                        <button 
+                                          key={p} 
+                                          onClick={() => setFormData({...formData, pageCount: p})}
+                                          className={`flex-1 lg:w-10 lg:h-10 p-2 rounded-xl flex items-center justify-center text-sm font-black transition-all ${
+                                            formData.pageCount === p 
+                                            ? 'bg-blue-600 text-white shadow-lg scale-105' 
+                                            : 'bg-slate-50 text-slate-400 hover:bg-slate-100'
+                                          }`}
+                                        >
+                                          {p}
+                                        </button>
+                                      ))}
+                                      <span className="text-[10px] font-bold text-slate-300 ml-2 uppercase">Pages</span>
+                                    </div>
+                                  </div>
+                                </div>
                               </div>
-                            </div>
-                          </div>
+                              
+                              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-10">
+                                <div className="lg:col-span-4 space-y-6 sm:space-y-8">
+                                  <div className="space-y-3">
+                                    <label className="block text-xs font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Educational Level</label>
+                                    <div className="p-4 sm:p-6 rounded-[1.5rem] sm:rounded-[2rem] bg-slate-100 border-2 border-slate-200 font-bold text-slate-500 cursor-not-allowed text-sm flex items-center justify-between">
+                                      {formData.educationalLevel}
+                                      <Lock className="w-4 h-4 opacity-30" />
+                                    </div>
+                                  </div>
+                                  <div className="space-y-3">
+                                    <label className="block text-xs font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Difficulty</label>
+                                    <select className="w-full p-4 sm:p-6 rounded-[1.5rem] sm:rounded-[2rem] bg-slate-50 border-2 border-slate-100 focus:border-yellow-400 outline-none font-bold text-slate-700 transition-all hover:bg-white" value={formData.difficulty} onChange={(e) => setFormData({...formData, difficulty: e.target.value})}>
+                                      <option>Easy</option><option>Medium</option><option>Hard</option><option>Expert</option>
+                                    </select>
+                                  </div>
+                                  <div className="space-y-3">
+                                    <label className="block text-xs font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Language</label>
+                                    <select className="w-full p-4 sm:p-6 rounded-[1.5rem] sm:rounded-[2rem] bg-slate-50 border-2 border-slate-100 focus:border-yellow-400 outline-none font-bold text-slate-700 transition-all hover:bg-white" value={formData.language} onChange={(e) => setFormData({...formData, language: e.target.value})}>
+                                      <option>English</option><option>Spanish</option><option>French</option><option>German</option><option>Chinese</option>
+                                    </select>
+                                  </div>
+                                </div>
+
+                                <div className="lg:col-span-4 bg-slate-50 rounded-[1.5rem] sm:rounded-[2.5rem] p-6 sm:p-8 border border-slate-100">
+                                  <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-6 flex items-center justify-between">
+                                    Item Distribution
+                                    <span className={`px-2 py-0.5 rounded text-[10px] shadow-sm transition-colors ${totalQuestions === 0 ? 'bg-red-400 text-white' : 'bg-yellow-400 text-yellow-900'}`}>
+                                      Total: {totalQuestions}
+                                    </span>
+                                  </h4>
+                                  <div className="space-y-3">
+                                    {Object.entries(formData.questionCounts).map(([type, count]) => (
+                                      <div key={type} className="flex items-center justify-between bg-white p-2 px-4 rounded-xl sm:rounded-2xl shadow-sm border border-slate-50 hover:border-yellow-200 transition-colors group">
+                                        <div className="flex flex-col">
+                                          <span className="text-[8px] sm:text-[10px] font-black text-slate-300 uppercase leading-none mb-1 group-hover:text-yellow-600">{type.replace('_', ' ')}</span>
+                                          <span className="text-[10px] sm:text-xs font-bold text-slate-600 truncate max-w-[80px] sm:max-w-[100px]">{type.split('_').map(w => w[0] + w.slice(1).toLowerCase()).join(' ')}</span>
+                                        </div>
+                                        <div className="flex items-center gap-2 sm:gap-3">
+                                          <button onClick={() => updateCount(type as QuestionType, -1)} className="p-1 hover:bg-slate-100 rounded-lg text-slate-400 transition-colors"><Minus className="w-3 h-3 sm:w-4 sm:h-4" /></button>
+                                          <span className="w-3 sm:w-4 text-center font-black text-sm sm:text-base text-slate-800">{count}</span>
+                                          <button onClick={() => updateCount(type as QuestionType, 1)} className="p-1 hover:bg-slate-100 rounded-lg text-slate-400 transition-colors"><Plus className="w-3 h-3 sm:w-4 sm:h-4" /></button>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+
+                                <div className="lg:col-span-4 space-y-4">
+                                  <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest ml-2 flex items-center gap-2">
+                                    <Info className="w-4 h-4 text-blue-500" /> Item Vocabulary
+                                  </h4>
+                                  <div className="bg-white rounded-[1.5rem] sm:rounded-[2rem] border border-slate-100 overflow-hidden shadow-sm overflow-x-auto">
+                                    <table className="w-full text-left min-w-[200px]">
+                                      <thead>
+                                        <tr className="bg-slate-50 border-b border-slate-100">
+                                          <th className="px-3 sm:px-4 py-2 sm:py-3 text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-slate-400">Abbr.</th>
+                                          <th className="px-3 sm:px-4 py-2 sm:py-3 text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-slate-400">Outcome</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody className="divide-y divide-slate-50">
+                                        {glossaryItems.map((item) => (
+                                          <tr key={item.id} className="hover:bg-slate-50 transition-colors group">
+                                            <td className="px-3 sm:px-4 py-2 sm:py-3">
+                                              <div className="flex items-center gap-2">
+                                                <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-slate-100 text-slate-400 flex items-center justify-center group-hover:bg-yellow-400 group-hover:text-white transition-colors shadow-sm">
+                                                  {item.icon}
+                                                </div>
+                                                <span className="text-[9px] sm:text-[11px] font-black text-slate-700">{item.label}</span>
+                                              </div>
+                                            </td>
+                                            <td className="px-3 sm:px-4 py-2 sm:py-3 text-[8px] sm:text-[10px] font-medium text-slate-400 leading-tight">
+                                              {item.desc}
+                                            </td>
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                </div>
+                              </div>
+                            </>
+                          )}
                         </div>
                       )}
                     </div>
@@ -1022,8 +1070,8 @@ const App: React.FC = () => {
                             </button>
                           </div>
                         ) : (
-                          <button onClick={handleGenerate} disabled={totalQuestions === 0 || isAnalyzing} className={`w-full sm:w-auto flex items-center justify-center gap-4 px-12 sm:px-16 py-4 sm:py-5 rounded-[1.5rem] sm:rounded-[2.5rem] font-black text-lg sm:text-xl transition-all active:scale-95 ${totalQuestions === 0 || isAnalyzing ? 'bg-slate-200 text-slate-400 cursor-not-allowed opacity-50 shadow-none' : 'bg-yellow-400 text-yellow-900 shadow-xl hover:bg-yellow-500 animate-pulse hover:animate-none'}`}>
-                            <Sparkles className="w-6 h-6 sm:w-7 sm:h-7" /> Build Final Sheet
+                          <button onClick={handleGenerate} disabled={(!isPreschool && totalQuestions === 0) || isAnalyzing} className={`w-full sm:w-auto flex items-center justify-center gap-4 px-12 sm:px-16 py-4 sm:py-5 rounded-[1.5rem] sm:rounded-[2.5rem] font-black text-lg sm:text-xl transition-all active:scale-95 ${(!isPreschool && totalQuestions === 0) || isAnalyzing ? 'bg-slate-200 text-slate-400 cursor-not-allowed opacity-50 shadow-none' : 'bg-yellow-400 text-yellow-900 shadow-xl hover:bg-yellow-500 animate-pulse hover:animate-none'}`}>
+                            <Sparkles className="w-6 h-6 sm:w-7 sm:h-7" /> {isPreschool ? 'Generate Coloring Page' : 'Build Final Sheet'}
                           </button>
                         )}
                         {lastSavedTime && !isAnalyzing && (
@@ -1056,14 +1104,26 @@ const App: React.FC = () => {
                            <button onClick={() => window.print()} className="flex items-center justify-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 bg-slate-100 text-slate-700 rounded-lg sm:rounded-xl text-[10px] sm:text-sm font-bold hover:bg-slate-200 transition-colors">
                             <Printer className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span>Print</span>
                            </button>
-                           <button onClick={() => setShowTeacherKey(!showTeacherKey)} className={`flex items-center justify-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg sm:rounded-xl text-[10px] sm:text-sm font-bold transition-all ${showTeacherKey ? 'bg-red-100 text-red-700 shadow-inner' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}><Key className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span>{showTeacherKey ? "Keys On" : "Keys Off"}</span></button>
+                           {isSeniorLevel && (
+                             <button 
+                               onClick={() => setIsMathMode(!isMathMode)} 
+                               className={`flex items-center justify-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg sm:rounded-xl text-[10px] sm:text-sm font-bold transition-all ${isMathMode ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}
+                             >
+                               <Sigma className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span>Math Mode</span>
+                             </button>
+                           )}
+                           {!isPreschool && (
+                             <button onClick={() => setShowTeacherKey(!showTeacherKey)} className={`flex items-center justify-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg sm:rounded-xl text-[10px] sm:text-sm font-bold transition-all ${showTeacherKey ? 'bg-red-100 text-red-700 shadow-inner' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}><Key className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span>{showTeacherKey ? "Keys On" : "Keys Off"}</span></button>
+                           )}
                            <button onClick={handleSaveCurrent} className="flex items-center justify-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 bg-yellow-50 text-yellow-700 rounded-lg sm:rounded-xl text-[10px] sm:text-sm font-bold hover:bg-yellow-100 transition-colors"><Save className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span>Save</span></button>
-                           <button onClick={() => setMode(AppMode.QUIZ)} className="flex items-center justify-center gap-1.5 px-4 py-2 bg-slate-900 text-white rounded-lg sm:rounded-xl text-[10px] sm:text-sm font-bold hover:bg-slate-800 transition-colors shadow-lg active:scale-95"><PlayCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span>Quiz</span></button>
+                           {!isPreschool && (
+                             <button onClick={() => setMode(AppMode.QUIZ)} className="flex items-center justify-center gap-1.5 px-4 py-2 bg-slate-900 text-white rounded-lg sm:rounded-xl text-[10px] sm:text-sm font-bold hover:bg-slate-800 transition-colors shadow-lg active:scale-95"><PlayCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span>Quiz</span></button>
+                           )}
                         </div>
                       </div>
                     </div>
                   </div>
-                  <WorksheetView worksheet={worksheet} theme={theme} showKey={showTeacherKey} showDoodles={showDoodles} />
+                  <WorksheetView worksheet={worksheet} theme={theme} showKey={showTeacherKey} showDoodles={showDoodles} isMathMode={isMathMode} />
                 </div>
               )}
 

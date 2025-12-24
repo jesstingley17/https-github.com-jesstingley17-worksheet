@@ -25,6 +25,7 @@ export interface Worksheet {
   topic: string;
   educationalLevel: string;
   questions: Question[];
+  coloringImage?: string; // Base64 image data for preschool coloring pages
   savedAt?: number;
 }
 

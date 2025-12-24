@@ -14,6 +14,7 @@ export interface GenerationOptions {
   rawText?: string;
   fileData?: { data: string; mimeType: string };
   pageTarget?: number;
+  includeTracing?: boolean;
 }
 
 export interface AnalysisResult {
@@ -101,8 +102,95 @@ export async function generateTopicScopeSuggestion(title: string, ageGroup: stri
 }
 
 export async function generateWorksheet(options: GenerationOptions): Promise<Worksheet> {
-  const { topic, customTitle, gradeLevel, difficulty, language, questionCounts, rawText, fileData, pageTarget = 1 } = options;
+  const { topic, customTitle, gradeLevel, difficulty, language, questionCounts, rawText, fileData, pageTarget = 1, includeTracing = false } = options;
 
+  const isPreschool = gradeLevel.includes("Preschool");
+
+  if (isPreschool) {
+    // Specialized preschool logic: Generate a coloring page
+    const imagePrompt = `A simple, bold black and white line art coloring page for a preschool child (ages 3-5). The subject is: ${topic}. Big, clear shapes, no shading, clean outlines only. Educational and fun style.`;
+    
+    try {
+      const imgResponse = await ai.models.generateContent({
+        model: 'gemini-2.5-flash-image',
+        contents: {
+          parts: [{ text: imagePrompt }]
+        },
+        config: {
+          imageConfig: {
+            aspectRatio: "1:1"
+          }
+        }
+      });
+
+      let coloringImageBase64 = '';
+      for (const part of imgResponse.candidates[0].content.parts) {
+        if (part.inlineData) {
+          coloringImageBase64 = `data:image/png;base64,${part.inlineData.data}`;
+          break;
+        }
+      }
+
+      let questions: any[] = [];
+      if (includeTracing) {
+        const tracingPrompt = `For a preschool child learning about "${topic}", suggest 2-3 very simple words or one short 3-word sentence to trace.
+        Return in JSON format:
+        {
+          "tracingItems": ["WORD1", "WORD2", "Short Sentence"]
+        }`;
+
+        const textResponse = await ai.models.generateContent({
+          model: 'gemini-3-flash-preview',
+          contents: tracingPrompt,
+          config: { 
+            responseMimeType: 'application/json',
+            responseSchema: {
+              type: Type.OBJECT,
+              properties: {
+                tracingItems: { type: Type.ARRAY, items: { type: Type.STRING } }
+              },
+              required: ["tracingItems"]
+            }
+          }
+        });
+
+        const tracingData = JSON.parse(textResponse.text || '{}');
+        questions = (tracingData.tracingItems || []).map((text: string, i: number) => ({
+          id: `trace-${i}`,
+          type: QuestionType.SENTENCE_DRILL,
+          question: `Trace the word: ${text}`,
+          correctAnswer: text,
+          explanation: "Fine motor skill development through tracing.",
+          isChallenge: false
+        }));
+      }
+
+      return {
+        title: customTitle || `Coloring Page: ${topic}`,
+        topic: topic,
+        educationalLevel: gradeLevel,
+        questions: questions,
+        coloringImage: coloringImageBase64
+      };
+    } catch (e) {
+      console.error("Preschool generation failed", e);
+      return {
+        title: customTitle || `Coloring Activity: ${topic}`,
+        topic: topic,
+        educationalLevel: gradeLevel,
+        questions: [{
+          id: 'preschool-msg',
+          type: QuestionType.SENTENCE_DRILL,
+          question: `Let's learn about ${topic}! Draw a big picture of it in the box below.`,
+          correctAnswer: topic,
+          explanation: "Preschoolers learn best through visual and motor activities.",
+          isChallenge: false
+        }]
+      };
+    }
+  }
+
+  // Standard Logic for other levels
   let parts: any[] = [];
   
   const countInstruction = Object.entries(questionCounts)
