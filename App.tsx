@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { AppMode, Worksheet, ThemeType, QuestionType } from './types';
 import { generateWorksheet, generateTopicScopeSuggestion } from './services/geminiService';
@@ -47,7 +48,8 @@ import {
   Printer,
   FileDown,
   FastForward,
-  FileJson
+  FileJson,
+  Lock
 } from 'lucide-react';
 
 const WorksheetSkeleton: React.FC<{ theme: ThemeType }> = ({ theme }) => {
@@ -103,8 +105,7 @@ const App: React.FC = () => {
   const [formData, setFormData] = useState<{
     topic: string;
     customTitle: string;
-    ageGroup: string;
-    gradeLevel: string;
+    educationalLevel: string;
     difficulty: string;
     language: string;
     rawText: string;
@@ -112,8 +113,7 @@ const App: React.FC = () => {
   }>({
     topic: '',
     customTitle: '',
-    ageGroup: '7-9 years',
-    gradeLevel: 'High School',
+    educationalLevel: 'High School',
     difficulty: 'Medium',
     language: 'English',
     rawText: '',
@@ -133,6 +133,28 @@ const App: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  const educationalLevels = [
+    "Preschool (3-5 years)",
+    "Elementary School",
+    "Middle School",
+    "High School",
+    "University / College",
+    "Professional / Adult"
+  ];
+
+  const isSeniorLevel = 
+    formData.educationalLevel === 'High School' || 
+    formData.educationalLevel === 'University / College' || 
+    formData.educationalLevel === 'Professional / Adult';
+
+  // Force Classic theme for senior levels
+  useEffect(() => {
+    if (isSeniorLevel && theme === ThemeType.CREATIVE) {
+      setTheme(ThemeType.CLASSIC);
+      setShowDoodles(false);
+    }
+  }, [formData.educationalLevel, isSeniorLevel, theme]);
 
   const totalQuestions = (Object.values(formData.questionCounts) as number[]).reduce((a: number, b: number) => a + b, 0);
 
@@ -230,8 +252,7 @@ const App: React.FC = () => {
       const empty = {
         topic: '',
         customTitle: '',
-        ageGroup: '7-9 years',
-        gradeLevel: 'High School',
+        educationalLevel: 'High School',
         difficulty: 'Medium',
         language: 'English',
         rawText: '',
@@ -299,7 +320,7 @@ const App: React.FC = () => {
     }
     setIsGeneratingScope(true);
     try {
-      const suggestion = await generateTopicScopeSuggestion(formData.customTitle, formData.ageGroup);
+      const suggestion = await generateTopicScopeSuggestion(formData.customTitle, formData.educationalLevel);
       if (suggestion) {
         setFormData(prev => ({ ...prev, topic: suggestion }));
       }
@@ -325,14 +346,14 @@ const App: React.FC = () => {
       const result = await generateWorksheet({
         topic: formData.topic,
         customTitle: formData.customTitle,
-        gradeLevel: formData.gradeLevel,
+        gradeLevel: formData.educationalLevel,
         difficulty: formData.difficulty,
         language: formData.language,
         questionCounts: formData.questionCounts,
         fileData: fileData || undefined,
         rawText: formData.rawText || undefined,
       });
-      const finalResult = { ...result, id: Date.now().toString(), savedAt: Date.now() };
+      const finalResult = { ...result, id: Date.now().toString(), savedAt: Date.now(), educationalLevel: formData.educationalLevel };
       setWorksheet(finalResult);
       setShowTeacherKey(false);
       setMode(AppMode.WORKSHEET);
@@ -350,7 +371,7 @@ const App: React.FC = () => {
     setLoading(true);
     try {
       const canvas = await html2canvas(element, {
-        scale: 2, // Use 2x scale for better print quality
+        scale: 2, 
         useCORS: true,
         logging: false,
         backgroundColor: '#ffffff'
@@ -482,23 +503,37 @@ const App: React.FC = () => {
                 <button onClick={() => setTheme(ThemeType.CLASSIC)} className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-bold transition-all ${theme === ThemeType.CLASSIC ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500'}`}>
                   <Layout className="w-4 h-4" /> Classic
                 </button>
-                <button onClick={() => setTheme(ThemeType.CREATIVE)} className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-bold transition-all ${theme === ThemeType.CREATIVE ? 'bg-white shadow-sm text-yellow-600' : 'text-slate-500'}`}>
-                  <Sparkles className="w-4 h-4" /> Creative
+                <button 
+                  disabled={isSeniorLevel}
+                  onClick={() => setTheme(ThemeType.CREATIVE)} 
+                  className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-bold transition-all ${theme === ThemeType.CREATIVE ? 'bg-white shadow-sm text-yellow-600' : 'text-slate-400 disabled:opacity-40 disabled:cursor-not-allowed'}`}
+                  title={isSeniorLevel ? "Creative mode is disabled for senior levels" : ""}
+                >
+                  {isSeniorLevel ? <Lock className="w-3 h-3" /> : <Sparkles className="w-4 h-4" />} Creative
                 </button>
               </div>
               
               <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
                 <div className="flex flex-col">
-                  <span className="text-xs font-bold text-slate-700">Doodles & Diagrams</span>
-                  <span className="text-[9px] text-slate-400 uppercase font-black">Visual Elements</span>
+                  <span className={`text-xs font-bold ${isSeniorLevel ? 'text-slate-400' : 'text-slate-700'}`}>Visual Doodles</span>
+                  <span className="text-[9px] text-slate-400 uppercase font-black">Professional Auto-Enforce</span>
                 </div>
                 <button 
+                  disabled={isSeniorLevel}
                   onClick={() => setShowDoodles(!showDoodles)}
-                  className="text-slate-400 hover:text-blue-500 transition-colors"
+                  className={`transition-colors ${isSeniorLevel ? 'text-slate-200 cursor-not-allowed' : 'text-slate-400 hover:text-blue-500'}`}
                 >
-                  {showDoodles ? <ToggleRight className="w-8 h-8 text-blue-500" /> : <ToggleLeft className="w-8 h-8" />}
+                  {showDoodles && !isSeniorLevel ? <ToggleRight className="w-8 h-8 text-blue-500" /> : <ToggleLeft className="w-8 h-8" />}
                 </button>
               </div>
+              {isSeniorLevel && (
+                <div className="p-2 bg-blue-50/50 rounded-lg border border-blue-100/50">
+                   <p className="text-[9px] text-blue-600 font-bold leading-tight flex items-start gap-1.5">
+                     <Info className="w-3 h-3 flex-shrink-0" />
+                     Professional themes are mandatory for high school/university standards to ensure document integrity.
+                   </p>
+                </div>
+              )}
             </div>
           </div>
 
@@ -563,8 +598,8 @@ const App: React.FC = () => {
         </div>
       </aside>
 
-      <main className="flex-1 lg:ml-80 min-h-screen relative">
-        <div className="p-8">
+      <main className="flex-1 lg:ml-80 min-h-screen relative overflow-x-hidden">
+        <div className="p-4 sm:p-8">
           {loading ? (
             <div className="animate-in fade-in duration-700 pt-12">
               <WorksheetSkeleton theme={theme} />
@@ -574,69 +609,69 @@ const App: React.FC = () => {
               {mode === AppMode.GENERATOR && (
                 <div className="max-w-5xl mx-auto pt-8">
                   <div className="text-center mb-10">
-                    <h2 className="font-handwriting-header text-7xl text-slate-800 mb-4">
+                    <h2 className="font-handwriting-header text-5xl sm:text-7xl text-slate-800 mb-4">
                       Homework <MarkerHighlight>Hero</MarkerHighlight>
                     </h2>
-                    <p className="text-slate-500 text-lg font-medium">Step-by-step sequential worksheet building.</p>
+                    <p className="text-slate-500 text-base sm:text-lg font-medium px-4">Step-by-step sequential worksheet building.</p>
                     
-                    <div className="flex items-center justify-center gap-3 mt-10">
+                    <div className="flex items-center justify-center gap-1 sm:gap-3 mt-10 px-2">
                        {[
                          { step: 1, label: 'Scan' },
                          { step: 2, label: 'Input' },
                          { step: 3, label: 'Context' },
                          { step: 4, label: 'Precision' }
                        ].map((s) => (
-                         <div key={s.step} className="flex items-center gap-3">
+                         <div key={s.step} className="flex items-center gap-1 sm:gap-3">
                            <div className={`flex flex-col items-center gap-1`}>
-                             <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-sm border-2 transition-all ${
+                             <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center font-black text-xs sm:text-sm border-2 transition-all ${
                                currentStep === s.step ? 'bg-yellow-400 border-yellow-400 text-white shadow-xl scale-110' : 
                                currentStep > s.step ? 'bg-green-500 border-green-500 text-white' : 'bg-white border-slate-200 text-slate-300'
                              }`}>
-                               {currentStep > s.step ? <CheckCircle2 className="w-6 h-6" /> : s.step}
+                               {currentStep > s.step ? <CheckCircle2 className="w-5 h-5 sm:w-6 sm:h-6" /> : s.step}
                              </div>
-                             <span className={`text-[9px] uppercase font-black tracking-widest ${currentStep === s.step ? 'text-slate-800' : 'text-slate-300'}`}>
+                             <span className={`text-[8px] sm:text-[9px] uppercase font-black tracking-widest ${currentStep === s.step ? 'text-slate-800' : 'text-slate-300'}`}>
                                {s.label}
                              </span>
                            </div>
-                           {s.step < 4 && <div className={`w-10 h-[3px] rounded-full mb-4 ${currentStep > s.step ? 'bg-green-400' : 'bg-slate-100'}`}></div>}
+                           {s.step < 4 && <div className={`w-4 sm:w-10 h-[3px] rounded-full mb-4 ${currentStep > s.step ? 'bg-green-400' : 'bg-slate-100'}`}></div>}
                          </div>
                        ))}
                     </div>
                   </div>
 
-                  <div className="bg-white rounded-[3rem] shadow-[0_20px_50px_rgba(0,0,0,0.05)] border border-slate-100 overflow-hidden mb-12 min-h-[650px] flex flex-col transform transition-all duration-500">
-                    <div className="flex-1 p-12 overflow-y-auto max-h-[70vh] custom-scrollbar">
+                  <div className="bg-white rounded-[2rem] sm:rounded-[3rem] shadow-[0_20px_50px_rgba(0,0,0,0.05)] border border-slate-100 overflow-hidden mb-12 min-h-[500px] sm:min-h-[650px] flex flex-col transform transition-all duration-500 mx-auto max-w-full">
+                    <div className="flex-1 p-6 sm:p-12 overflow-y-auto max-h-[70vh] custom-scrollbar">
                       
                       {currentStep === 1 && (
                         <div className="animate-in slide-in-from-right duration-500 h-full flex flex-col">
                           <div className="flex items-center gap-4 mb-6">
-                            <div className="p-3 bg-blue-50 rounded-2xl"><Upload className="text-blue-500" /></div>
+                            <div className="p-2 sm:p-3 bg-blue-50 rounded-2xl"><Upload className="text-blue-500" /></div>
                             <div>
-                              <h3 className="text-3xl font-black text-slate-800">1. Scan Media (Optional)</h3>
-                              <p className="text-slate-400 font-medium">Extract context from textbook photos or PDFs.</p>
+                              <h3 className="text-2xl sm:text-3xl font-black text-slate-800">1. Scan Media (Optional)</h3>
+                              <p className="text-sm sm:text-base text-slate-400 font-medium">Extract context from textbook photos or PDFs.</p>
                             </div>
                           </div>
                           
                           <div className="flex-1 flex flex-col items-center justify-center gap-6">
                             {!fileData && !isCameraActive ? (
-                              <div className="w-full max-w-lg grid grid-cols-2 gap-6">
+                              <div className="w-full max-w-lg grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                                 <div 
                                   onClick={() => fileInputRef.current?.click()} 
-                                  className="border-4 border-dashed border-slate-100 rounded-[2.5rem] p-10 text-center hover:border-yellow-200 transition-all cursor-pointer group bg-slate-50/50 flex flex-col items-center justify-center"
+                                  className="border-4 border-dashed border-slate-100 rounded-[2rem] sm:rounded-[2.5rem] p-6 sm:p-10 text-center hover:border-yellow-200 transition-all cursor-pointer group bg-slate-50/50 flex flex-col items-center justify-center"
                                 >
                                   <input type="file" ref={fileInputRef} className="hidden" accept="image/*,application/pdf" onChange={handleFileChange} />
-                                  <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center mb-4 shadow-lg group-hover:scale-110 transition-transform border border-slate-50">
-                                    <Upload className="w-8 h-8 text-yellow-500" />
+                                  <div className="w-12 h-12 sm:w-16 sm:h-16 bg-white rounded-2xl flex items-center justify-center mb-4 shadow-lg group-hover:scale-110 transition-transform border border-slate-50">
+                                    <Upload className="w-6 h-6 sm:w-8 sm:h-8 text-yellow-500" />
                                   </div>
                                   <p className="font-bold text-slate-700">Browse Files</p>
                                 </div>
 
                                 <div 
                                   onClick={() => setIsCameraActive(true)} 
-                                  className="border-4 border-dashed border-slate-100 rounded-[2.5rem] p-10 text-center hover:border-yellow-200 transition-all cursor-pointer group bg-slate-50/50 flex flex-col items-center justify-center"
+                                  className="border-4 border-dashed border-slate-100 rounded-[2rem] sm:rounded-[2.5rem] p-6 sm:p-10 text-center hover:border-yellow-200 transition-all cursor-pointer group bg-slate-50/50 flex flex-col items-center justify-center"
                                 >
-                                  <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center mb-4 shadow-lg group-hover:scale-110 transition-transform border border-slate-50">
-                                    <Camera className="w-8 h-8 text-blue-500" />
+                                  <div className="w-12 h-12 sm:w-16 sm:h-16 bg-white rounded-2xl flex items-center justify-center mb-4 shadow-lg group-hover:scale-110 transition-transform border border-slate-50">
+                                    <Camera className="w-6 h-6 sm:w-8 sm:h-8 text-blue-500" />
                                   </div>
                                   <p className="font-bold text-slate-700">Live Camera</p>
                                 </div>
@@ -651,16 +686,16 @@ const App: React.FC = () => {
                                   <div className="absolute bottom-6 left-0 right-0 flex justify-center gap-4">
                                     <button 
                                       onClick={capturePhoto}
-                                      className="relative w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-2xl active:scale-90 transition-transform"
+                                      className="relative w-12 h-12 sm:w-16 sm:h-16 bg-white rounded-full flex items-center justify-center shadow-2xl active:scale-90 transition-transform"
                                     >
                                       <div className="absolute inset-0 rounded-full bg-white animate-pulse-ring pointer-events-none"></div>
-                                      <div className="relative w-12 h-12 border-4 border-slate-900 rounded-full z-10"></div>
+                                      <div className="relative w-8 h-8 sm:w-12 sm:h-12 border-4 border-slate-900 rounded-full z-10"></div>
                                     </button>
                                     <button 
                                       onClick={() => setIsCameraActive(false)}
-                                      className="w-16 h-16 bg-red-500 text-white rounded-full flex items-center justify-center shadow-2xl hover:bg-red-600 transition-colors z-10"
+                                      className="w-12 h-12 sm:w-16 sm:h-16 bg-red-500 text-white rounded-full flex items-center justify-center shadow-2xl hover:bg-red-600 transition-colors z-10"
                                     >
-                                      <X className="w-8 h-8" />
+                                      <X className="w-6 h-6 sm:w-8 sm:h-8" />
                                     </button>
                                   </div>
                                 </div>
@@ -669,18 +704,18 @@ const App: React.FC = () => {
                               </div>
                             ) : (
                               <div className="w-full max-w-lg space-y-6 animate-in zoom-in duration-300">
-                                <div className="relative rounded-[2.5rem] overflow-hidden bg-slate-100 border-4 border-white shadow-2xl">
+                                <div className="relative rounded-[2rem] sm:rounded-[2.5rem] overflow-hidden bg-slate-100 border-4 border-white shadow-2xl">
                                   {fileData.preview ? (
-                                    <img src={fileData.preview} alt="Scan Preview" className="w-full h-80 object-contain bg-slate-900" />
+                                    <img src={fileData.preview} alt="Scan Preview" className="w-full h-48 sm:h-80 object-contain bg-slate-900" />
                                   ) : (
-                                    <div className="w-full h-80 flex flex-col items-center justify-center gap-4 bg-slate-800 text-white">
-                                      <FileIcon className="w-16 h-16 opacity-50" />
-                                      <p className="font-bold text-lg">{fileData.name}</p>
+                                    <div className="w-full h-48 sm:h-80 flex flex-col items-center justify-center gap-4 bg-slate-800 text-white">
+                                      <FileIcon className="w-12 h-12 sm:w-16 sm:h-16 opacity-50" />
+                                      <p className="font-bold text-base sm:text-lg px-4 text-center">{fileData.name}</p>
                                     </div>
                                   )}
                                   <div className="absolute top-4 right-4 flex gap-2">
-                                    <button onClick={() => { setFileData(null); setIsCameraActive(true); }} className="p-2 bg-white text-slate-800 rounded-full shadow-lg hover:bg-slate-50 transition-colors"><RotateCcw className="w-5 h-5" /></button>
-                                    <button onClick={() => setFileData(null)} className="p-2 bg-red-500 text-white rounded-full shadow-lg hover:bg-red-600 transition-colors"><X className="w-5 h-5" /></button>
+                                    <button onClick={() => { setFileData(null); setIsCameraActive(true); }} className="p-2 bg-white text-slate-800 rounded-full shadow-lg hover:bg-slate-50 transition-colors"><RotateCcw className="w-4 h-4 sm:w-5 sm:h-5" /></button>
+                                    <button onClick={() => setFileData(null)} className="p-2 bg-red-500 text-white rounded-full shadow-lg hover:bg-red-600 transition-colors"><X className="w-4 h-4 sm:w-5 sm:h-5" /></button>
                                   </div>
                                 </div>
                                 <div className="flex items-center justify-center gap-3 p-4 bg-green-50 text-green-700 rounded-2xl border border-green-100 font-bold">
@@ -697,13 +732,13 @@ const App: React.FC = () => {
                           <div className="flex items-center gap-4 mb-6">
                             <div className="p-3 bg-purple-50 rounded-2xl"><Clipboard className="text-purple-500" /></div>
                             <div>
-                              <h3 className="text-3xl font-black text-slate-800">2. Text Integration (Optional)</h3>
-                              <p className="text-slate-400 font-medium">Paste direct quotes, problem sets, or specific facts.</p>
+                              <h3 className="text-2xl sm:text-3xl font-black text-slate-800">2. Text Integration (Optional)</h3>
+                              <p className="text-sm sm:text-base text-slate-400 font-medium">Paste direct quotes, problem sets, or specific facts.</p>
                             </div>
                           </div>
                           <textarea 
                             placeholder="Paste your source text here..." 
-                            className="w-full p-10 rounded-[2.5rem] bg-slate-50 border-2 border-slate-100 focus:border-yellow-400 focus:bg-white focus:outline-none transition-all text-xl min-h-[350px] shadow-inner font-medium" 
+                            className="w-full p-6 sm:p-10 rounded-[1.5rem] sm:rounded-[2.5rem] bg-slate-50 border-2 border-slate-100 focus:border-yellow-400 focus:bg-white focus:outline-none transition-all text-base sm:text-xl min-h-[250px] sm:min-h-[350px] shadow-inner font-medium" 
                             value={formData.rawText} 
                             onChange={(e) => setFormData({...formData, rawText: e.target.value})} 
                           />
@@ -715,31 +750,26 @@ const App: React.FC = () => {
                           <div className="flex items-center gap-4 mb-6">
                             <div className="p-3 bg-yellow-50 rounded-2xl"><Sparkles className="text-yellow-500" /></div>
                             <div>
-                              <h3 className="text-3xl font-black text-slate-800">3. Creative Direction</h3>
-                              <p className="text-slate-400 font-medium">Define the theme and instructional goal.</p>
+                              <h3 className="text-2xl sm:text-3xl font-black text-slate-800">3. Creative Direction</h3>
+                              <p className="text-sm sm:text-base text-slate-400 font-medium">Define the theme and instructional goal.</p>
                             </div>
                           </div>
                           <div className="space-y-6">
                              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                <div className="space-y-3">
                                   <label className="block text-xs font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Display Title</label>
-                                  <input type="text" placeholder="e.g. Unit 4: Cellular Respiration" className="w-full p-6 rounded-[2rem] bg-slate-50 border-2 border-slate-100 focus:border-yellow-400 outline-none font-bold text-slate-700 transition-all" value={formData.customTitle} onChange={(e) => setFormData({...formData, customTitle: e.target.value})} />
+                                  <input type="text" placeholder="e.g. Unit 4: Cellular Respiration" className="w-full p-4 sm:p-6 rounded-[1.5rem] sm:rounded-[2rem] bg-slate-50 border-2 border-slate-100 focus:border-yellow-400 outline-none font-bold text-slate-700 transition-all" value={formData.customTitle} onChange={(e) => setFormData({...formData, customTitle: e.target.value})} />
                                </div>
                                <div className="space-y-3">
-                                  <label className="block text-xs font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Target Age Group</label>
-                                  <select className="w-full p-6 rounded-[2rem] bg-slate-50 border-2 border-slate-100 focus:border-yellow-400 outline-none font-bold text-slate-700" value={formData.ageGroup} onChange={(e) => setFormData({...formData, ageGroup: e.target.value})}>
-                                    <option>4-6 years</option>
-                                    <option>7-9 years</option>
-                                    <option>10-12 years</option>
-                                    <option>13-15 years</option>
-                                    <option>16-18 years</option>
-                                    <option>Adults</option>
+                                  <label className="block text-xs font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Educational Level</label>
+                                  <select className="w-full p-4 sm:p-6 rounded-[1.5rem] sm:rounded-[2rem] bg-slate-50 border-2 border-slate-100 focus:border-yellow-400 outline-none font-bold text-slate-700" value={formData.educationalLevel} onChange={(e) => setFormData({...formData, educationalLevel: e.target.value})}>
+                                    {educationalLevels.map(lvl => <option key={lvl} value={lvl}>{lvl}</option>)}
                                   </select>
                                </div>
                              </div>
 
                              <div className="space-y-3">
-                                <div className="flex justify-between items-end mb-2">
+                                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end mb-2 gap-2">
                                   <label className="block text-xs font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Topic Scope <span className="text-red-500">*</span></label>
                                   <button 
                                     onClick={handleGenerateScope}
@@ -753,7 +783,7 @@ const App: React.FC = () => {
                                 <textarea 
                                   required 
                                   placeholder="Focus area? e.g. 'Photosynthesis with a focus on light-dependent reactions'" 
-                                  className={`w-full p-10 rounded-[2.5rem] bg-slate-50 border-2 focus:bg-white focus:outline-none transition-all text-xl min-h-[200px] font-medium ${!formData.topic.trim() ? 'border-red-100' : 'border-slate-100 focus:border-yellow-400'}`} 
+                                  className={`w-full p-6 sm:p-10 rounded-[1.5rem] sm:rounded-[2.5rem] bg-slate-50 border-2 focus:bg-white focus:outline-none transition-all text-base sm:text-xl min-h-[150px] sm:min-h-[200px] font-medium ${!formData.topic.trim() ? 'border-red-100' : 'border-slate-100 focus:border-yellow-400'}`} 
                                   value={formData.topic} 
                                   onChange={(e) => setFormData({...formData, topic: e.target.value})} 
                                 />
@@ -768,49 +798,47 @@ const App: React.FC = () => {
                           <div className="flex items-center gap-4 mb-8">
                             <div className="p-3 bg-green-50 rounded-2xl"><Settings className="text-green-500" /></div>
                             <div>
-                              <h3 className="text-3xl font-black text-slate-800">4. Final Specification</h3>
-                              <p className="text-slate-400 font-medium">Finalize the mix and educational level.</p>
+                              <h3 className="text-2xl sm:text-3xl font-black text-slate-800">4. Final Specification</h3>
+                              <p className="text-sm sm:text-base text-slate-400 font-medium">Finalize the mix and rigor.</p>
                             </div>
                           </div>
 
-                          <div className="mb-10 p-6 bg-slate-50 rounded-[2.5rem] border border-slate-100">
+                          <div className="mb-10 p-4 sm:p-6 bg-slate-50 rounded-[1.5rem] sm:rounded-[2.5rem] border border-slate-100">
                             <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
                               <Zap className="w-4 h-4 text-yellow-500" /> Quick Mix Presets
                             </h4>
-                            <div className="flex flex-wrap gap-4">
+                            <div className="flex flex-wrap gap-2 sm:gap-4">
                               {["Classic Exam", "Skill Practice", "Mixed Hero"].map(preset => (
-                                <button key={preset} onClick={() => applyPreset(preset)} className="px-6 py-3 bg-white border-2 border-slate-100 rounded-2xl font-bold text-slate-600 hover:border-yellow-400 hover:text-yellow-600 transition-all active:scale-95 shadow-sm">
+                                <button key={preset} onClick={() => applyPreset(preset)} className="px-4 py-2 sm:px-6 sm:py-3 bg-white border-2 border-slate-100 rounded-xl sm:rounded-2xl font-bold text-xs sm:text-sm text-slate-600 hover:border-yellow-400 hover:text-yellow-600 transition-all active:scale-95 shadow-sm">
                                   {preset}
                                 </button>
                               ))}
                             </div>
                           </div>
                           
-                          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
-                            {/* Metadata Selection */}
-                            <div className="lg:col-span-4 space-y-8">
+                          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-10">
+                            <div className="lg:col-span-4 space-y-6 sm:space-y-8">
                               <div className="space-y-3">
-                                <label className="block text-xs font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Grade Level</label>
-                                <select className="w-full p-6 rounded-[2rem] bg-slate-50 border-2 border-slate-100 focus:border-yellow-400 outline-none font-bold text-slate-700" value={formData.gradeLevel} onChange={(e) => setFormData({...formData, gradeLevel: e.target.value})}>
-                                  <option>Elementary</option><option>Middle School</option><option>High School</option><option>University</option>
-                                </select>
+                                <label className="block text-xs font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Educational Level</label>
+                                <div className="p-4 sm:p-6 rounded-[1.5rem] sm:rounded-[2rem] bg-slate-100 border-2 border-slate-200 font-bold text-slate-500 cursor-not-allowed">
+                                  {formData.educationalLevel}
+                                </div>
                               </div>
                               <div className="space-y-3">
                                 <label className="block text-xs font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Difficulty</label>
-                                <select className="w-full p-6 rounded-[2rem] bg-slate-50 border-2 border-slate-100 focus:border-yellow-400 outline-none font-bold text-slate-700" value={formData.difficulty} onChange={(e) => setFormData({...formData, difficulty: e.target.value})}>
+                                <select className="w-full p-4 sm:p-6 rounded-[1.5rem] sm:rounded-[2rem] bg-slate-50 border-2 border-slate-100 focus:border-yellow-400 outline-none font-bold text-slate-700" value={formData.difficulty} onChange={(e) => setFormData({...formData, difficulty: e.target.value})}>
                                   <option>Easy</option><option>Medium</option><option>Hard</option><option>Expert</option>
                                 </select>
                               </div>
                               <div className="space-y-3">
                                 <label className="block text-xs font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Language</label>
-                                <select className="w-full p-6 rounded-[2rem] bg-slate-50 border-2 border-slate-100 focus:border-yellow-400 outline-none font-bold text-slate-700" value={formData.language} onChange={(e) => setFormData({...formData, language: e.target.value})}>
+                                <select className="w-full p-4 sm:p-6 rounded-[1.5rem] sm:rounded-[2rem] bg-slate-50 border-2 border-slate-100 focus:border-yellow-400 outline-none font-bold text-slate-700" value={formData.language} onChange={(e) => setFormData({...formData, language: e.target.value})}>
                                   <option>English</option><option>Spanish</option><option>French</option><option>German</option><option>Chinese</option>
                                 </select>
                               </div>
                             </div>
 
-                            {/* Mix Configurator */}
-                            <div className="lg:col-span-4 bg-slate-50 rounded-[2.5rem] p-8 border border-slate-100">
+                            <div className="lg:col-span-4 bg-slate-50 rounded-[1.5rem] sm:rounded-[2.5rem] p-6 sm:p-8 border border-slate-100">
                               <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-6 flex items-center justify-between">
                                 Item Distribution
                                 <span className={`px-2 py-0.5 rounded text-[10px] shadow-sm ${totalQuestions === 0 ? 'bg-red-400 text-white' : 'bg-yellow-400 text-yellow-900'}`}>
@@ -819,47 +847,45 @@ const App: React.FC = () => {
                               </h4>
                               <div className="space-y-3">
                                 {Object.entries(formData.questionCounts).map(([type, count]) => (
-                                  <div key={type} className="flex items-center justify-between bg-white p-3 px-5 rounded-2xl shadow-sm border border-slate-50 hover:border-yellow-200 transition-colors group">
+                                  <div key={type} className="flex items-center justify-between bg-white p-2 px-4 rounded-xl sm:rounded-2xl shadow-sm border border-slate-50 hover:border-yellow-200 transition-colors group">
                                     <div className="flex flex-col">
-                                       <span className="text-[10px] font-black text-slate-300 uppercase leading-none mb-1 group-hover:text-yellow-600">{type.replace('_', ' ')}</span>
-                                       <span className="text-xs font-bold text-slate-600 truncate max-w-[100px]">{type.split('_').map(w => w[0] + w.slice(1).toLowerCase()).join(' ')}</span>
+                                       <span className="text-[8px] sm:text-[10px] font-black text-slate-300 uppercase leading-none mb-1 group-hover:text-yellow-600">{type.replace('_', ' ')}</span>
+                                       <span className="text-[10px] sm:text-xs font-bold text-slate-600 truncate max-w-[80px] sm:max-w-[100px]">{type.split('_').map(w => w[0] + w.slice(1).toLowerCase()).join(' ')}</span>
                                     </div>
-                                    <div className="flex items-center gap-3">
-                                      <button onClick={() => updateCount(type as QuestionType, -1)} className="p-1 hover:bg-slate-100 rounded-lg text-slate-400 transition-colors"><Minus className="w-4 h-4" /></button>
-                                      <span className="w-4 text-center font-black text-slate-800">{count}</span>
-                                      <button onClick={() => updateCount(type as QuestionType, 1)} className="p-1 hover:bg-slate-100 rounded-lg text-slate-400 transition-colors"><Plus className="w-4 h-4" /></button>
+                                    <div className="flex items-center gap-2 sm:gap-3">
+                                      <button onClick={() => updateCount(type as QuestionType, -1)} className="p-1 hover:bg-slate-100 rounded-lg text-slate-400 transition-colors"><Minus className="w-3 h-3 sm:w-4 sm:h-4" /></button>
+                                      <span className="w-3 sm:w-4 text-center font-black text-sm sm:text-base text-slate-800">{count}</span>
+                                      <button onClick={() => updateCount(type as QuestionType, 1)} className="p-1 hover:bg-slate-100 rounded-lg text-slate-400 transition-colors"><Plus className="w-3 h-3 sm:w-4 sm:h-4" /></button>
                                     </div>
                                   </div>
                                 ))}
                               </div>
-                              {totalQuestions === 0 && <p className="text-[10px] text-red-400 font-bold mt-4 uppercase tracking-widest text-center">At least 1 item required</p>}
                             </div>
 
-                            {/* Enhanced Glossary Table */}
                             <div className="lg:col-span-4 space-y-4">
                               <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest ml-2 flex items-center gap-2">
                                 <Info className="w-4 h-4 text-blue-500" /> Item Vocabulary
                               </h4>
-                              <div className="bg-white rounded-[2rem] border border-slate-100 overflow-hidden shadow-sm">
-                                <table className="w-full text-left">
+                              <div className="bg-white rounded-[1.5rem] sm:rounded-[2rem] border border-slate-100 overflow-hidden shadow-sm overflow-x-auto">
+                                <table className="w-full text-left min-w-[200px]">
                                   <thead>
                                     <tr className="bg-slate-50 border-b border-slate-100">
-                                      <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">Abbr.</th>
-                                      <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">Outcome</th>
+                                      <th className="px-3 sm:px-4 py-2 sm:py-3 text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-slate-400">Abbr.</th>
+                                      <th className="px-3 sm:px-4 py-2 sm:py-3 text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-slate-400">Outcome</th>
                                     </tr>
                                   </thead>
                                   <tbody className="divide-y divide-slate-50">
                                     {glossaryItems.map((item) => (
                                       <tr key={item.id} className="hover:bg-slate-50 transition-colors group">
-                                        <td className="px-4 py-3">
+                                        <td className="px-3 sm:px-4 py-2 sm:py-3">
                                           <div className="flex items-center gap-2">
-                                            <div className="w-7 h-7 rounded-lg bg-slate-100 text-slate-400 flex items-center justify-center group-hover:bg-yellow-400 group-hover:text-white transition-colors shadow-sm">
+                                            <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-slate-100 text-slate-400 flex items-center justify-center group-hover:bg-yellow-400 group-hover:text-white transition-colors shadow-sm">
                                               {item.icon}
                                             </div>
-                                            <span className="text-[11px] font-black text-slate-700">{item.label}</span>
+                                            <span className="text-[9px] sm:text-[11px] font-black text-slate-700">{item.label}</span>
                                           </div>
                                         </td>
-                                        <td className="px-4 py-3 text-[10px] font-medium text-slate-400 leading-tight">
+                                        <td className="px-3 sm:px-4 py-2 sm:py-3 text-[8px] sm:text-[10px] font-medium text-slate-400 leading-tight">
                                           {item.desc}
                                         </td>
                                       </tr>
@@ -867,53 +893,44 @@ const App: React.FC = () => {
                                   </tbody>
                                 </table>
                               </div>
-                              <div className="px-2 space-y-2">
-                                <div className="flex items-center gap-2 text-[10px] font-bold text-slate-300 uppercase tracking-tighter">
-                                  <Trophy className="w-3 h-3" /> Master Skill Assessment
-                                </div>
-                                <div className="flex items-center gap-2 text-[10px] font-bold text-slate-300 uppercase tracking-tighter">
-                                  <Activity className="w-3 h-3" /> Progressive Learning Path
-                                </div>
-                              </div>
                             </div>
                           </div>
                         </div>
                       )}
                     </div>
 
-                    {/* Sequential Navigation */}
-                    <div className="p-10 bg-slate-50/80 border-t border-slate-100 flex justify-between items-center backdrop-blur-md">
-                      <div className="flex items-center gap-6">
-                        <button onClick={prevStep} disabled={currentStep === 1} className={`flex items-center gap-3 px-8 py-4 rounded-2xl font-black transition-all ${currentStep === 1 ? 'opacity-0 pointer-events-none' : 'text-slate-400 hover:text-slate-800'}`}>
-                          <ArrowLeft className="w-6 h-6" /> Previous
+                    <div className="p-6 sm:p-10 bg-slate-50/80 border-t border-slate-100 flex flex-col sm:flex-row justify-between items-center backdrop-blur-md gap-4">
+                      <div className="flex items-center gap-4 sm:gap-6">
+                        <button onClick={prevStep} disabled={currentStep === 1} className={`flex items-center gap-2 sm:gap-3 px-4 sm:px-8 py-3 sm:py-4 rounded-xl sm:rounded-2xl font-black transition-all ${currentStep === 1 ? 'opacity-0 pointer-events-none' : 'text-slate-400 hover:text-slate-800'}`}>
+                          <ArrowLeft className="w-5 h-5 sm:w-6 sm:h-6" /> Previous
                         </button>
-                        <button onClick={resetForm} className="text-xs font-black uppercase tracking-widest text-slate-300 hover:text-red-400 transition-colors">
+                        <button onClick={resetForm} className="text-[10px] font-black uppercase tracking-widest text-slate-300 hover:text-red-400 transition-colors">
                           Wipe Draft
                         </button>
                       </div>
 
-                      <div className="flex flex-col items-center gap-2">
+                      <div className="flex flex-col items-center gap-2 w-full sm:w-auto">
                         {currentStep < 4 ? (
-                          <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
                              {(currentStep === 1 || currentStep === 2) && (
                                <button 
                                  onClick={nextStep}
-                                 className="px-6 py-4 text-slate-400 hover:text-slate-600 font-bold uppercase text-[10px] tracking-widest border-2 border-transparent hover:border-slate-200 rounded-2xl transition-all flex items-center gap-2"
+                                 className="px-4 sm:px-6 py-3 sm:py-4 text-slate-400 hover:text-slate-600 font-bold uppercase text-[9px] sm:text-[10px] tracking-widest border-2 border-transparent hover:border-slate-200 rounded-xl sm:rounded-2xl transition-all flex items-center gap-2"
                                >
-                                 <FastForward className="w-4 h-4" /> Skip for now
+                                 <FastForward className="w-4 h-4" /> Skip
                                </button>
                              )}
-                            <button onClick={nextStep} disabled={currentStep === 3 && !formData.topic.trim()} className={`flex items-center gap-3 px-14 py-4 bg-white text-slate-800 rounded-2xl font-black border-2 border-slate-100 hover:border-yellow-400 transition-all disabled:opacity-50 shadow-sm active:scale-95`}>
-                              Continue <ArrowRight className="w-6 h-6" />
+                            <button onClick={nextStep} disabled={currentStep === 3 && !formData.topic.trim()} className={`flex-1 sm:flex-none flex items-center justify-center gap-3 px-10 sm:px-14 py-3 sm:py-4 bg-white text-slate-800 rounded-xl sm:rounded-2xl font-black border-2 border-slate-100 hover:border-yellow-400 transition-all disabled:opacity-50 shadow-sm active:scale-95`}>
+                              Continue <ArrowRight className="w-5 h-5 sm:w-6 sm:h-6" />
                             </button>
                           </div>
                         ) : (
-                          <button onClick={handleGenerate} disabled={totalQuestions === 0} className={`flex items-center gap-4 px-16 py-5 rounded-[2.5rem] font-black text-xl transition-all active:scale-95 ${totalQuestions === 0 ? 'bg-slate-200 text-slate-400 cursor-not-allowed opacity-50 shadow-none' : 'bg-yellow-400 text-yellow-900 shadow-xl hover:bg-yellow-500 animate-pulse hover:animate-none'}`}>
-                            <Sparkles className="w-7 h-7" /> Build Final Sheet
+                          <button onClick={handleGenerate} disabled={totalQuestions === 0} className={`w-full sm:w-auto flex items-center justify-center gap-4 px-12 sm:px-16 py-4 sm:py-5 rounded-[1.5rem] sm:rounded-[2.5rem] font-black text-lg sm:text-xl transition-all active:scale-95 ${totalQuestions === 0 ? 'bg-slate-200 text-slate-400 cursor-not-allowed opacity-50 shadow-none' : 'bg-yellow-400 text-yellow-900 shadow-xl hover:bg-yellow-500 animate-pulse hover:animate-none'}`}>
+                            <Sparkles className="w-6 h-6 sm:w-7 sm:h-7" /> Build Final Sheet
                           </button>
                         )}
                         {lastSavedTime && (
-                          <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest flex items-center gap-1">
+                          <span className="text-[8px] sm:text-[9px] font-black text-slate-300 uppercase tracking-widest flex items-center gap-1">
                             <CheckCircle2 className="w-2.5 h-2.5" /> Progress Saved
                           </span>
                         )}
@@ -925,24 +942,26 @@ const App: React.FC = () => {
 
               {mode === AppMode.WORKSHEET && worksheet && (
                 <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 pt-8 pb-20">
-                  <div className="max-w-[210mm] mx-auto mb-6 flex justify-between items-center bg-white p-4 rounded-3xl shadow-sm border border-slate-100 no-print">
-                    <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center font-bold text-white shadow-sm">1</div>
-                      <p className="font-bold text-slate-600">Generated View</p>
-                    </div>
-                    <div className="flex gap-2">
-                       <button onClick={handleExportJSON} title="Download structured data" className="flex items-center gap-2 px-4 py-2 bg-white border-2 border-slate-100 text-slate-600 rounded-xl font-bold hover:border-purple-400 hover:text-purple-600 transition-all">
-                        <FileJson className="w-4 h-4" /> Export JSON
-                       </button>
-                       <button onClick={handleExportPDF} className="flex items-center gap-2 px-4 py-2 bg-white border-2 border-slate-100 text-slate-700 rounded-xl font-bold hover:border-blue-400 hover:text-blue-600 transition-all">
-                        <FileDown className="w-4 h-4" /> Download PDF
-                       </button>
-                       <button onClick={() => window.print()} className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition-colors">
-                        <Printer className="w-4 h-4" /> Print
-                       </button>
-                       <button onClick={() => setShowTeacherKey(!showTeacherKey)} className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold transition-all ${showTeacherKey ? 'bg-red-100 text-red-700 shadow-inner' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}><Key className="w-4 h-4" /> {showTeacherKey ? "Hide Solutions" : "Teacher Solution Key"}</button>
-                       <button onClick={handleSaveCurrent} className="flex items-center gap-2 px-4 py-2 bg-yellow-50 text-yellow-700 rounded-xl font-bold hover:bg-yellow-100 transition-colors"><Save className="w-4 h-4" /> Store Worksheet</button>
-                       <button onClick={() => setMode(AppMode.QUIZ)} className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-colors"><PlayCircle className="w-4 h-4" /> Start Interactive Mode</button>
+                  <div className="max-w-[210mm] mx-auto mb-6 bg-white p-3 sm:p-4 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100 no-print sticky top-4 z-50">
+                    <div className="flex flex-col xl:flex-row justify-between items-center gap-4">
+                      <div className="flex items-center gap-3 sm:gap-4 self-start sm:self-auto">
+                        <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-600 rounded-lg sm:rounded-xl flex items-center justify-center font-bold text-white shadow-sm text-sm sm:text-base">1</div>
+                        <p className="font-bold text-slate-600 text-sm sm:text-base">Current Result</p>
+                      </div>
+                      <div className="grid grid-cols-3 sm:flex sm:flex-wrap justify-center sm:justify-end gap-1.5 sm:gap-2 w-full xl:w-auto">
+                         <button onClick={handleExportJSON} title="Download structured data" className="flex items-center justify-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 bg-white border-2 border-slate-100 text-slate-600 rounded-lg sm:rounded-xl text-[10px] sm:text-sm font-bold hover:border-purple-400 hover:text-purple-600 transition-all">
+                          <FileJson className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span className="hidden xs:inline">Data</span>
+                         </button>
+                         <button onClick={handleExportPDF} className="flex items-center justify-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 bg-white border-2 border-slate-100 text-slate-700 rounded-lg sm:rounded-xl text-[10px] sm:text-sm font-bold hover:border-blue-400 hover:text-blue-600 transition-all">
+                          <FileDown className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span className="hidden xs:inline">PDF</span>
+                         </button>
+                         <button onClick={() => window.print()} className="flex items-center justify-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 bg-slate-100 text-slate-700 rounded-lg sm:rounded-xl text-[10px] sm:text-sm font-bold hover:bg-slate-200 transition-colors">
+                          <Printer className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span className="hidden xs:inline">Print</span>
+                         </button>
+                         <button onClick={() => setShowTeacherKey(!showTeacherKey)} className={`flex items-center justify-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg sm:rounded-xl text-[10px] sm:text-sm font-bold transition-all ${showTeacherKey ? 'bg-red-100 text-red-700 shadow-inner' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}><Key className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span className="hidden xs:inline">{showTeacherKey ? "Keys On" : "Keys Off"}</span></button>
+                         <button onClick={handleSaveCurrent} className="flex items-center justify-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 bg-yellow-50 text-yellow-700 rounded-lg sm:rounded-xl text-[10px] sm:text-sm font-bold hover:bg-yellow-100 transition-colors"><Save className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span className="hidden xs:inline">Save</span></button>
+                         <button onClick={() => setMode(AppMode.QUIZ)} className="flex items-center justify-center gap-1.5 px-4 py-2 bg-slate-900 text-white rounded-lg sm:rounded-xl text-[10px] sm:text-sm font-bold hover:bg-slate-800 transition-colors shadow-lg active:scale-95"><PlayCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span className="hidden xs:inline">Quiz</span></button>
+                      </div>
                     </div>
                   </div>
                   <WorksheetView worksheet={worksheet} theme={theme} showKey={showTeacherKey} showDoodles={showDoodles} />
@@ -950,7 +969,7 @@ const App: React.FC = () => {
               )}
 
               {mode === AppMode.QUIZ && worksheet && (
-                <div className="animate-in fade-in zoom-in duration-700 pt-8">
+                <div className="animate-in fade-in zoom-in duration-700 pt-4 sm:pt-8">
                   <QuizView worksheet={worksheet} theme={theme} onExit={() => setMode(AppMode.WORKSHEET)} />
                 </div>
               )}

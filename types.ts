@@ -23,7 +23,7 @@ export interface Worksheet {
   id?: string;
   title: string;
   topic: string;
-  gradeLevel: string;
+  educationalLevel: string;
   questions: Question[];
   savedAt?: number;
 }

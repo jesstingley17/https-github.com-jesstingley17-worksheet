@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Worksheet, QuestionType, ThemeType, Question } from '../types';
 import { 
@@ -24,8 +25,11 @@ export const WorksheetView: React.FC<WorksheetViewProps> = ({ worksheet, theme, 
   const isCreative = theme === ThemeType.CREATIVE;
   const isClassic = theme === ThemeType.CLASSIC;
   
-  // High School/University levels should be more professional and dense
-  const isSeniorLevel = worksheet.gradeLevel === 'High School' || worksheet.gradeLevel === 'University';
+  // Professional levels should be more professional and dense
+  const isSeniorLevel = worksheet.educationalLevel.includes('High School') || 
+                        worksheet.educationalLevel.includes('University') || 
+                        worksheet.educationalLevel.includes('Professional');
+  
   const isClassicProfessional = isClassic && isSeniorLevel;
 
   // Logic helpers
@@ -52,37 +56,33 @@ export const WorksheetView: React.FC<WorksheetViewProps> = ({ worksheet, theme, 
 
   const canUseDoubleColumns = isCreative && drillItems.every(q => q.correctAnswer.length < 15);
 
-  // High academic formatting: smaller, denser, no juvenile elements
-  const titleSizeClass = isCreative ? 'text-6xl text-center' : (isClassicProfessional ? 'text-lg font-bold uppercase tracking-tight' : 'text-3xl font-black');
-  const questionSizeClass = isCreative ? 'text-xl' : (isClassicProfessional ? 'text-[12px] font-bold leading-tight' : 'text-lg font-bold');
-  const optionSizeClass = isCreative ? 'text-lg' : (isClassicProfessional ? 'text-[10px] leading-tight font-medium' : 'text-sm');
+  const titleSizeClass = isCreative ? 'text-6xl text-center' : (isClassicProfessional ? 'text-base font-bold uppercase tracking-tight' : 'text-3xl font-black');
+  const questionSizeClass = isCreative ? 'text-xl' : (isClassicProfessional ? 'text-[11px] font-bold leading-tight' : 'text-lg font-bold');
+  const optionSizeClass = isCreative ? 'text-lg' : (isClassicProfessional ? 'text-[9.5px] leading-tight font-medium' : 'text-sm');
   
   const sectionSpacingClass = isClassicProfessional ? 'space-y-4' : 'space-y-12';
   const itemSpacingClass = isClassicProfessional ? 'space-y-3' : 'space-y-10';
 
-  // Professional header should be very minimalist
-  const headerPadding = isClassicProfessional ? 'pb-2 mb-3' : 'pb-6 mb-10';
+  const headerPadding = isClassicProfessional ? 'pb-1.5 mb-2.5' : 'pb-6 mb-10';
 
   return (
     <div 
       id="worksheet-content" 
-      className={`max-w-[210mm] mx-auto bg-white ${isClassicProfessional ? 'p-[12mm]' : 'p-[12mm]'} shadow-lg min-h-[297mm] relative transition-all duration-500 overflow-hidden ${isCreative ? 'font-handwriting-body' : 'font-sans border border-slate-200'}`}
+      className={`max-w-[210mm] mx-auto bg-white ${isClassicProfessional ? 'p-[15mm]' : 'p-[12mm]'} shadow-lg min-h-[297mm] relative transition-all duration-500 overflow-hidden ${isCreative ? 'font-handwriting-body' : 'font-sans border border-slate-200'}`}
     >
       
-      {/* Cutting Guide Border - Only for junior/creative */}
       {!isClassicProfessional && (
         <div className={`absolute inset-2 pointer-events-none border border-dashed rounded-sm z-0 ${isCreative ? 'border-slate-200' : 'border-slate-300'} opacity-60`}></div>
       )}
 
       {showKey && (
         <div className="absolute top-10 right-10 -rotate-12 pointer-events-none z-50">
-          <div className="border-4 border-red-500 text-red-500 px-6 py-2 rounded-xl text-2xl font-black uppercase opacity-60 bg-white/80">
+          <div className="border-4 border-red-500 text-red-500 px-6 py-2 rounded-xl text-2xl font-black uppercase opacity-60 bg-white/80 shadow-lg">
             OFFICIAL SOLUTION
           </div>
         </div>
       )}
 
-      {/* Doodles: Strictly forbidden for senior levels in professional mode */}
       {(isCreative || (showDoodles && !isSeniorLevel)) && (
         <>
           <DoodleCorner position="tl" />
@@ -92,51 +92,49 @@ export const WorksheetView: React.FC<WorksheetViewProps> = ({ worksheet, theme, 
         </>
       )}
 
-      {/* Header */}
       <div className={`${headerPadding} relative z-10 border-b-2 ${isClassicProfessional ? 'border-slate-900' : 'border-slate-100'}`}>
         <h1 
           contentEditable={isClassic}
           suppressContentEditableWarning={true}
-          className={`${isCreative ? 'font-handwriting-header' : 'font-sans text-left outline-none hover:bg-slate-50'} ${titleSizeClass} text-slate-900`}
+          className={`${isCreative ? 'font-handwriting-header' : 'font-sans text-left outline-none hover:bg-slate-50'} ${titleSizeClass} text-slate-900 leading-tight`}
         >
           {worksheet.title || "Academic Assessment Document"}
         </h1>
         
         <div className={`flex justify-between items-center ${isClassicProfessional ? 'mt-1' : 'mt-6'} px-0`}>
           <div className="flex items-center gap-4">
-            <div className={`px-2 py-0.5 text-[8px] font-bold tracking-widest uppercase border ${isCreative ? 'bg-yellow-400 text-yellow-900 border-yellow-500' : 'bg-white text-slate-900 border-slate-800'}`}>
+            <div className={`px-1.5 py-0.5 text-[7.5px] font-bold tracking-widest uppercase border ${isCreative ? 'bg-yellow-400 text-yellow-900 border-yellow-500' : 'bg-white text-slate-900 border-slate-800'}`}>
               Assessment Ref: HH-V2.5-PRO-{worksheet.id?.slice(-6) || 'N/A'}
             </div>
             {(isCreative || (showDoodles && !isSeniorLevel)) && <HelenCharacter />}
           </div>
           <div className="text-right flex flex-col items-end gap-0">
-            <div className={`text-[8px] font-bold uppercase tracking-tight text-slate-500`}>
+            <div className={`text-[7.5px] font-bold uppercase tracking-tight text-slate-500`}>
               Module: <span className="text-slate-900" contentEditable={isClassic} suppressContentEditableWarning={true}>{worksheet.topic}</span>
             </div>
-            <div className={`text-[8px] font-bold uppercase tracking-tight text-slate-500`}>
-              Classification: <span className="text-slate-900" contentEditable={isClassic} suppressContentEditableWarning={true}>{worksheet.gradeLevel}</span>
+            <div className={`text-[7.5px] font-bold uppercase tracking-tight text-slate-500`}>
+              Classification: <span className="text-slate-900" contentEditable={isClassic} suppressContentEditableWarning={true}>{worksheet.educationalLevel}</span>
             </div>
           </div>
         </div>
 
         {isClassic && (
-          <div className={`${isClassicProfessional ? 'mt-3' : 'mt-8'} flex justify-between items-end pt-1`}>
+          <div className={`${isClassicProfessional ? 'mt-2' : 'mt-8'} flex justify-between items-end pt-1`}>
              <div className="flex flex-col gap-0 w-2/3">
-                <span className="text-[7px] uppercase font-bold text-slate-500 tracking-tighter">Candidate Full Name</span>
-                <div className={`w-full border-b border-slate-400 pb-0.5 text-slate-300 ${isClassicProfessional ? 'text-[10px]' : 'text-sm'} font-medium`}>
+                <span className="text-[6.5px] uppercase font-bold text-slate-500 tracking-tighter">Candidate Full Name</span>
+                <div className={`w-full border-b border-slate-400 pb-0.5 text-slate-300 ${isClassicProfessional ? 'text-[9.5px]' : 'text-sm'} font-medium`}>
                    {showKey ? <span className="text-red-500 font-bold uppercase not-italic">TEACHER COPY - INTERNAL USE ONLY</span> : "________________________________________________________________________"}
                 </div>
              </div>
              <div className="flex flex-col gap-0 w-1/4">
-                <span className="text-[7px] uppercase font-bold text-slate-500 tracking-tighter">Submission Date</span>
-                <div className={`w-full border-b border-slate-400 pb-0.5 text-slate-300 ${isClassicProfessional ? 'text-[10px]' : 'text-sm'}`}>____ / ____ / 20__</div>
+                <span className="text-[6.5px] uppercase font-bold text-slate-500 tracking-tighter">Submission Date</span>
+                <div className={`w-full border-b border-slate-400 pb-0.5 text-slate-300 ${isClassicProfessional ? 'text-[9.5px]' : 'text-sm'}`}>____ / ____ / 20__</div>
              </div>
           </div>
         )}
       </div>
 
       <div className={`relative z-10 px-0 ${sectionSpacingClass}`}>
-        {/* SECTION: DRILLS (Strictly for non-senior levels) */}
         {!isSeniorLevel && (drillItems.length > 0 || specialDrills.length > 0) && (
           <div className="space-y-6">
             {(isCreative || showDoodles) && <HandDrawnDivider label="Foundation Drills" />}
@@ -179,11 +177,10 @@ export const WorksheetView: React.FC<WorksheetViewProps> = ({ worksheet, theme, 
           </div>
         )}
 
-        {/* SECTION: OBJECTIVE RESPONSE */}
         {interactiveItems.length > 0 && (
-          <div className={`${isClassicProfessional ? 'space-y-3' : 'space-y-8'}`}>
+          <div className={`${isClassicProfessional ? 'space-y-2' : 'space-y-8'}`}>
             {isClassicProfessional ? (
-              <h2 className="text-[10px] font-black text-slate-900 border-b border-slate-800 inline-block mb-1">PART A: OBJECTIVE ASSESSMENT</h2>
+              <h2 className="text-[9px] font-black text-slate-900 border-b border-slate-800 inline-block mb-1">PART A: OBJECTIVE ASSESSMENT</h2>
             ) : (isCreative || showDoodles) ? <HandDrawnDivider label="Assessment" /> : <h2 className="text-2xl font-black text-slate-800 border-l-4 border-blue-600 pl-4 py-1">Knowledge Check</h2>}
             
             <div className={itemSpacingClass}>
@@ -204,12 +201,12 @@ export const WorksheetView: React.FC<WorksheetViewProps> = ({ worksheet, theme, 
                     </div>
                     
                     {q.type === QuestionType.MCQ && (
-                      <div className={`grid gap-1 ml-6 ${getMcqGridCols(q.options)}`}>
+                      <div className={`grid gap-0.5 ml-6 ${getMcqGridCols(q.options)}`}>
                         {q.options?.map((opt, i) => (
                           <div key={i} className="flex items-center gap-1.5 group">
-                            <div className={`${isClassicProfessional ? 'w-3 h-3' : 'w-6 h-6'} flex-shrink-0 border ${isCreative ? 'border-slate-300 rotate-2' : 'border-slate-900 rounded-none'} flex items-center justify-center ${showKey && opt === q.correctAnswer ? 'bg-red-500 border-red-500' : ''}`}>
+                            <div className={`${isClassicProfessional ? 'w-2.5 h-2.5' : 'w-6 h-6'} flex-shrink-0 border ${isCreative ? 'border-slate-300 rotate-2' : 'border-slate-900 rounded-none'} flex items-center justify-center ${showKey && opt === q.correctAnswer ? 'bg-red-500 border-red-500' : ''}`}>
                                {isCreative && !showKey && <span className="text-[10px] text-slate-300 font-bold">{String.fromCharCode(65 + i)}</span>}
-                               {showKey && opt === q.correctAnswer && <span className="text-white text-[7px] font-bold">X</span>}
+                               {showKey && opt === q.correctAnswer && <span className="text-white text-[6px] font-bold">X</span>}
                             </div>
                             <span 
                               contentEditable={isClassic} 
@@ -224,10 +221,10 @@ export const WorksheetView: React.FC<WorksheetViewProps> = ({ worksheet, theme, 
                     )}
                     
                     {q.type === QuestionType.TF && (
-                      <div className={`flex gap-8 ${isClassicProfessional ? 'ml-6' : 'ml-12'}`}>
+                      <div className={`flex gap-6 ${isClassicProfessional ? 'ml-6' : 'ml-12'}`}>
                          {['True', 'False'].map((v) => (
-                           <span key={v} className={`flex items-center gap-1.5 ${isClassicProfessional ? 'text-[10px]' : 'text-lg'} font-bold ${showKey && v === q.correctAnswer ? 'text-red-700' : 'text-slate-800'}`}>
-                             <div className={`${isClassicProfessional ? 'w-3.5 h-3.5' : 'w-8 h-8'} border ${isCreative ? 'border-slate-200 rotate-3' : 'border-slate-900 rounded-none'} flex items-center justify-center text-[8px] ${showKey && v === q.correctAnswer ? 'bg-red-600 border-red-600 text-white shadow-sm' : 'opacity-30'}`}>
+                           <span key={v} className={`flex items-center gap-1.5 ${isClassicProfessional ? 'text-[9px]' : 'text-lg'} font-bold ${showKey && v === q.correctAnswer ? 'text-red-700' : 'text-slate-800'}`}>
+                             <div className={`${isClassicProfessional ? 'w-3 h-3' : 'w-8 h-8'} border ${isCreative ? 'border-slate-200 rotate-3' : 'border-slate-900 rounded-none'} flex items-center justify-center text-[7px] ${showKey && v === q.correctAnswer ? 'bg-red-600 border-red-600 text-white shadow-sm' : 'opacity-30'}`}>
                                {showKey && v === q.correctAnswer ? '✓' : v.charAt(0)}
                              </div> 
                              {v}
@@ -242,27 +239,30 @@ export const WorksheetView: React.FC<WorksheetViewProps> = ({ worksheet, theme, 
           </div>
         )}
 
-        {/* SECTION: ANALYTICAL / SUBJECTIVE RESPONSE */}
         {responseItems.length > 0 && (
-          <div className={`${isClassicProfessional ? 'space-y-3' : 'space-y-12'}`}>
+          <div className={`${isClassicProfessional ? 'space-y-2.5' : 'space-y-12'}`}>
             {isClassicProfessional ? (
-              <h2 className="text-[10px] font-black text-slate-900 border-b border-slate-800 inline-block mb-1">PART B: ANALYTICAL SYNTHESIS</h2>
+              <h2 className="text-[9px] font-black text-slate-900 border-b border-slate-800 inline-block mb-1">PART B: ANALYTICAL SYNTHESIS</h2>
             ) : (isCreative || showDoodles) ? <HandDrawnDivider label="Analysis Lab" /> : <h2 className="text-2xl font-black text-slate-800 border-l-4 border-blue-600 pl-4 py-1">Written Assessment</h2>}
             
-            <div className={isClassicProfessional ? 'space-y-4' : 'space-y-20'}>
+            <div className={isClassicProfessional ? 'space-y-3.5' : 'space-y-20'}>
               {responseItems.map((q, idx) => {
-                // Senior levels don't trace, ever.
                 const isTracingRequested = !isSeniorLevel && (q.type === QuestionType.VOCABULARY || q.type === QuestionType.SENTENCE_DRILL);
-                
+                const isExpandedType = q.type === QuestionType.SHORT_ANSWER || q.type === QuestionType.VOCABULARY;
+                const lineCount = isClassicProfessional ? (isExpandedType ? 5 : 4) : (isExpandedType ? 6 : 5);
+                const minHeightClass = isClassicProfessional 
+                  ? (isExpandedType ? 'min-h-[75px]' : 'min-h-[50px]') 
+                  : (isExpandedType ? 'min-h-80' : 'min-h-64');
+
                 return (
-                  <div key={q.id} className={`flex flex-col ${isClassicProfessional ? 'gap-1' : 'gap-6'}`}>
+                  <div key={q.id} className={`flex flex-col ${isClassicProfessional ? 'gap-0.5' : 'gap-6'}`}>
                     <div className="flex items-start gap-2">
                       {(isCreative || (showDoodles && !isSeniorLevel)) ? <QuestionIcon type="CHALLENGE" index={idx} /> : <span className={`font-bold text-slate-900 ${isClassicProfessional ? 'text-[11px]' : 'text-lg'}`}>{idx + 1}.</span>}
                       <div className="flex-1">
                         <p 
                           contentEditable={isClassic} 
                           suppressContentEditableWarning={true}
-                          className={`${isClassicProfessional ? 'text-[12px] font-bold' : 'text-2xl font-black'} leading-tight outline-none ${isCreative ? 'font-handwriting-header text-slate-800' : 'text-slate-900 hover:bg-slate-50'}`}
+                          className={`${isClassicProfessional ? 'text-[11px] font-bold' : 'text-2xl font-black'} leading-tight outline-none ${isCreative ? 'font-handwriting-header text-slate-800' : 'text-slate-900 hover:bg-slate-50'}`}
                         >
                           {q.question}
                         </p>
@@ -270,7 +270,7 @@ export const WorksheetView: React.FC<WorksheetViewProps> = ({ worksheet, theme, 
                       </div>
                     </div>
                     
-                    <div className={`ml-6 ${isClassicProfessional ? 'p-1 min-h-[60px]' : 'p-8 min-h-64'} rounded-none transition-all relative`}>
+                    <div className={`ml-6 ${minHeightClass} rounded-none border-l border-slate-200 transition-all relative`}>
                         {isTracingRequested && (
                           <div className={`flex flex-col gap-1 border-b-2 border-slate-100 pb-4 mb-6 relative`}>
                             <span className="text-[8px] font-black uppercase text-slate-300 tracking-[0.2em] mb-2">Reference Text</span>
@@ -289,7 +289,7 @@ export const WorksheetView: React.FC<WorksheetViewProps> = ({ worksheet, theme, 
                           </div>
                         )}
 
-                        <div className={`${isClassicProfessional ? 'space-y-2' : 'space-y-10'} relative`}>
+                        <div className={`${isClassicProfessional ? 'space-y-0' : 'space-y-10'} relative`}>
                           {!isClassicProfessional && (
                             <div className="flex justify-between items-center px-1">
                               <span className="text-[6px] font-bold uppercase text-slate-400 tracking-wider">
@@ -299,15 +299,15 @@ export const WorksheetView: React.FC<WorksheetViewProps> = ({ worksheet, theme, 
                             </div>
                           )}
                           
-                          <div className={`${isClassicProfessional ? 'space-y-4' : 'space-y-5'} relative`}>
-                            {[...Array(isClassicProfessional ? 3 : 5)].map((_, i) => (
-                              <div key={i} className={`border-b border-slate-300 w-full relative ${isClassicProfessional ? 'h-[22px]' : 'h-6'}`}>
+                          <div className={`${isClassicProfessional ? 'space-y-0' : 'space-y-5'} relative`}>
+                            {[...Array(lineCount)].map((_, i) => (
+                              <div key={i} className={`border-b border-slate-200 w-full relative ${isClassicProfessional ? 'h-[20px]' : 'h-6'}`}>
                               </div>
                             ))}
                             {showKey && (
-                              <div className="absolute inset-0 flex flex-col pt-0 text-red-600 font-bold text-[11px] italic pointer-events-none opacity-70">
-                                <p className={`${isClassicProfessional ? 'leading-[22px]' : ''}`}>{q.correctAnswer}</p>
-                                <p className="text-[8px] mt-2 opacity-60 leading-tight">Rationale: {q.explanation}</p>
+                              <div className="absolute inset-0 flex flex-col pt-0 text-red-600 font-bold text-[10px] italic pointer-events-none opacity-70">
+                                <p className={`${isClassicProfessional ? 'leading-[20px] mt-0.5 ml-1' : ''}`}>{q.correctAnswer}</p>
+                                {!isClassicProfessional && <p className="text-[8px] mt-2 opacity-60 leading-tight">Rationale: {q.explanation}</p>}
                               </div>
                             )}
                           </div>
@@ -321,20 +321,19 @@ export const WorksheetView: React.FC<WorksheetViewProps> = ({ worksheet, theme, 
         )}
       </div>
 
-      {/* Footer Branding */}
       <div className="mt-auto pt-4 relative z-10 opacity-40">
-        <div className={`flex justify-between items-end border-t border-slate-800 pt-2 ${isCreative ? '' : 'font-sans'}`}>
-          <div className="flex gap-10 font-bold text-[8px] text-slate-600 uppercase tracking-tighter">
+        <div className={`flex justify-between items-end border-t border-slate-800 pt-1.5 ${isCreative ? '' : 'font-sans'}`}>
+          <div className="flex gap-10 font-bold text-[7px] text-slate-600 uppercase tracking-tighter">
             <span>Critical Synthesis</span>
             <span>Empirical Rigor</span>
             <span>Academic Excellence</span>
           </div>
           <div className="text-right space-y-0">
-            <div className="text-[6px] font-black uppercase tracking-widest text-slate-900">
+            <div className="text-[5.5px] font-black uppercase tracking-widest text-slate-900">
               Exam Processor: HH-CORE-V2.5
             </div>
-            <div className="text-[7px] font-bold text-slate-500 uppercase">
-              CONFIDENTIAL ASSESSMENT CONTENT
+            <div className="text-[6.5px] font-bold text-slate-500 uppercase">
+              OFFICIAL ASSESSMENT CONTENT
             </div>
           </div>
         </div>
