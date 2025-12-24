@@ -49,13 +49,14 @@ import {
   FileDown,
   FastForward,
   FileJson,
-  Lock
+  Lock,
+  Award
 } from 'lucide-react';
 
 const WorksheetSkeleton: React.FC<{ theme: ThemeType }> = ({ theme }) => {
   const isCreative = theme === ThemeType.CREATIVE;
   return (
-    <div className={`max-w-[210mm] mx-auto bg-white p-[12mm] shadow-lg min-h-[297mm] relative transition-all duration-500 border border-slate-100 ${isCreative ? 'border-blue-50' : ''}`}>
+    <div className={`w-full max-w-4xl mx-auto bg-white p-[12mm] shadow-lg min-h-[297mm] relative transition-all duration-500 border border-slate-100 ${isCreative ? 'border-blue-50' : ''}`}>
       <div className="animate-pulse space-y-8">
         <div className="flex flex-col items-center space-y-4">
           <div className="h-12 bg-slate-200 rounded-full w-3/4"></div>
@@ -496,6 +497,24 @@ const App: React.FC = () => {
         <div className="flex-1 overflow-y-auto p-6 space-y-8">
           <div>
             <h3 className="text-xs uppercase tracking-widest text-slate-400 font-bold mb-4 flex items-center gap-2">
+              <Award className="w-3 h-3" /> Master Level
+            </h3>
+            <div className="space-y-2">
+              <select 
+                className="w-full p-3 rounded-xl bg-slate-100 border-2 border-transparent focus:border-blue-400 focus:bg-white outline-none font-bold text-slate-700 text-sm transition-all"
+                value={formData.educationalLevel}
+                onChange={(e) => setFormData({...formData, educationalLevel: e.target.value})}
+              >
+                {educationalLevels.map(lvl => <option key={lvl} value={lvl}>{lvl}</option>)}
+              </select>
+              <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-1 ml-1">
+                Sets academic rigor & complexity
+              </p>
+            </div>
+          </div>
+
+          <div>
+            <h3 className="text-xs uppercase tracking-widest text-slate-400 font-bold mb-4 flex items-center gap-2">
               <Settings className="w-3 h-3" /> Layout Style
             </h3>
             <div className="space-y-4">
@@ -751,21 +770,13 @@ const App: React.FC = () => {
                             <div className="p-3 bg-yellow-50 rounded-2xl"><Sparkles className="text-yellow-500" /></div>
                             <div>
                               <h3 className="text-2xl sm:text-3xl font-black text-slate-800">3. Creative Direction</h3>
-                              <p className="text-sm sm:text-base text-slate-400 font-medium">Define the theme and instructional goal.</p>
+                              <p className="text-sm sm:text-base text-slate-400 font-medium">Define the theme and instructional goal for your {formData.educationalLevel} worksheet.</p>
                             </div>
                           </div>
                           <div className="space-y-6">
-                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                               <div className="space-y-3">
-                                  <label className="block text-xs font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Display Title</label>
-                                  <input type="text" placeholder="e.g. Unit 4: Cellular Respiration" className="w-full p-4 sm:p-6 rounded-[1.5rem] sm:rounded-[2rem] bg-slate-50 border-2 border-slate-100 focus:border-yellow-400 outline-none font-bold text-slate-700 transition-all" value={formData.customTitle} onChange={(e) => setFormData({...formData, customTitle: e.target.value})} />
-                               </div>
-                               <div className="space-y-3">
-                                  <label className="block text-xs font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Educational Level</label>
-                                  <select className="w-full p-4 sm:p-6 rounded-[1.5rem] sm:rounded-[2rem] bg-slate-50 border-2 border-slate-100 focus:border-yellow-400 outline-none font-bold text-slate-700" value={formData.educationalLevel} onChange={(e) => setFormData({...formData, educationalLevel: e.target.value})}>
-                                    {educationalLevels.map(lvl => <option key={lvl} value={lvl}>{lvl}</option>)}
-                                  </select>
-                               </div>
+                             <div className="space-y-3">
+                                <label className="block text-xs font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Display Title</label>
+                                <input type="text" placeholder="e.g. Unit 4: Cellular Respiration" className="w-full p-4 sm:p-6 rounded-[1.5rem] sm:rounded-[2rem] bg-slate-50 border-2 border-slate-100 focus:border-yellow-400 outline-none font-bold text-slate-700 transition-all text-xl" value={formData.customTitle} onChange={(e) => setFormData({...formData, customTitle: e.target.value})} />
                              </div>
 
                              <div className="space-y-3">
@@ -799,7 +810,7 @@ const App: React.FC = () => {
                             <div className="p-3 bg-green-50 rounded-2xl"><Settings className="text-green-500" /></div>
                             <div>
                               <h3 className="text-2xl sm:text-3xl font-black text-slate-800">4. Final Specification</h3>
-                              <p className="text-sm sm:text-base text-slate-400 font-medium">Finalize the mix and rigor.</p>
+                              <p className="text-sm sm:text-base text-slate-400 font-medium">Finalize the mix and rigor for your {formData.educationalLevel} audience.</p>
                             </div>
                           </div>
 
@@ -820,7 +831,7 @@ const App: React.FC = () => {
                             <div className="lg:col-span-4 space-y-6 sm:space-y-8">
                               <div className="space-y-3">
                                 <label className="block text-xs font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Educational Level</label>
-                                <div className="p-4 sm:p-6 rounded-[1.5rem] sm:rounded-[2rem] bg-slate-100 border-2 border-slate-200 font-bold text-slate-500 cursor-not-allowed">
+                                <div className="p-4 sm:p-6 rounded-[1.5rem] sm:rounded-[2rem] bg-slate-100 border-2 border-slate-200 font-bold text-slate-500 cursor-not-allowed text-sm">
                                   {formData.educationalLevel}
                                 </div>
                               </div>
@@ -942,25 +953,27 @@ const App: React.FC = () => {
 
               {mode === AppMode.WORKSHEET && worksheet && (
                 <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 pt-8 pb-20">
-                  <div className="max-w-[210mm] mx-auto mb-6 bg-white p-3 sm:p-4 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100 no-print sticky top-4 z-50">
+                  <div className="w-full max-w-4xl mx-auto mb-6 bg-white p-3 sm:p-4 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-100 no-print sticky top-4 z-50">
                     <div className="flex flex-col xl:flex-row justify-between items-center gap-4">
                       <div className="flex items-center gap-3 sm:gap-4 self-start sm:self-auto">
                         <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-600 rounded-lg sm:rounded-xl flex items-center justify-center font-bold text-white shadow-sm text-sm sm:text-base">1</div>
                         <p className="font-bold text-slate-600 text-sm sm:text-base">Current Result</p>
                       </div>
-                      <div className="grid grid-cols-3 sm:flex sm:flex-wrap justify-center sm:justify-end gap-1.5 sm:gap-2 w-full xl:w-auto">
-                         <button onClick={handleExportJSON} title="Download structured data" className="flex items-center justify-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 bg-white border-2 border-slate-100 text-slate-600 rounded-lg sm:rounded-xl text-[10px] sm:text-sm font-bold hover:border-purple-400 hover:text-purple-600 transition-all">
-                          <FileJson className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span className="hidden xs:inline">Data</span>
-                         </button>
-                         <button onClick={handleExportPDF} className="flex items-center justify-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 bg-white border-2 border-slate-100 text-slate-700 rounded-lg sm:rounded-xl text-[10px] sm:text-sm font-bold hover:border-blue-400 hover:text-blue-600 transition-all">
-                          <FileDown className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span className="hidden xs:inline">PDF</span>
-                         </button>
-                         <button onClick={() => window.print()} className="flex items-center justify-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 bg-slate-100 text-slate-700 rounded-lg sm:rounded-xl text-[10px] sm:text-sm font-bold hover:bg-slate-200 transition-colors">
-                          <Printer className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span className="hidden xs:inline">Print</span>
-                         </button>
-                         <button onClick={() => setShowTeacherKey(!showTeacherKey)} className={`flex items-center justify-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg sm:rounded-xl text-[10px] sm:text-sm font-bold transition-all ${showTeacherKey ? 'bg-red-100 text-red-700 shadow-inner' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}><Key className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span className="hidden xs:inline">{showTeacherKey ? "Keys On" : "Keys Off"}</span></button>
-                         <button onClick={handleSaveCurrent} className="flex items-center justify-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 bg-yellow-50 text-yellow-700 rounded-lg sm:rounded-xl text-[10px] sm:text-sm font-bold hover:bg-yellow-100 transition-colors"><Save className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span className="hidden xs:inline">Save</span></button>
-                         <button onClick={() => setMode(AppMode.QUIZ)} className="flex items-center justify-center gap-1.5 px-4 py-2 bg-slate-900 text-white rounded-lg sm:rounded-xl text-[10px] sm:text-sm font-bold hover:bg-slate-800 transition-colors shadow-lg active:scale-95"><PlayCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span className="hidden xs:inline">Quiz</span></button>
+                      <div className="w-full xl:w-auto overflow-x-auto custom-scrollbar flex sm:justify-end">
+                        <div className="flex gap-1.5 sm:gap-2 min-w-max pb-1 sm:pb-0">
+                           <button onClick={handleExportJSON} title="Download structured data" className="flex items-center justify-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 bg-white border-2 border-slate-100 text-slate-600 rounded-lg sm:rounded-xl text-[10px] sm:text-sm font-bold hover:border-purple-400 hover:text-purple-600 transition-all">
+                            <FileJson className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span>Data</span>
+                           </button>
+                           <button onClick={handleExportPDF} className="flex items-center justify-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 bg-white border-2 border-slate-100 text-slate-700 rounded-lg sm:rounded-xl text-[10px] sm:text-sm font-bold hover:border-blue-400 hover:text-blue-600 transition-all">
+                            <FileDown className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span>PDF</span>
+                           </button>
+                           <button onClick={() => window.print()} className="flex items-center justify-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 bg-slate-100 text-slate-700 rounded-lg sm:rounded-xl text-[10px] sm:text-sm font-bold hover:bg-slate-200 transition-colors">
+                            <Printer className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span>Print</span>
+                           </button>
+                           <button onClick={() => setShowTeacherKey(!showTeacherKey)} className={`flex items-center justify-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg sm:rounded-xl text-[10px] sm:text-sm font-bold transition-all ${showTeacherKey ? 'bg-red-100 text-red-700 shadow-inner' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}><Key className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span>{showTeacherKey ? "Keys On" : "Keys Off"}</span></button>
+                           <button onClick={handleSaveCurrent} className="flex items-center justify-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 bg-yellow-50 text-yellow-700 rounded-lg sm:rounded-xl text-[10px] sm:text-sm font-bold hover:bg-yellow-100 transition-colors"><Save className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span>Save</span></button>
+                           <button onClick={() => setMode(AppMode.QUIZ)} className="flex items-center justify-center gap-1.5 px-4 py-2 bg-slate-900 text-white rounded-lg sm:rounded-xl text-[10px] sm:text-sm font-bold hover:bg-slate-800 transition-colors shadow-lg active:scale-95"><PlayCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span>Quiz</span></button>
+                        </div>
                       </div>
                     </div>
                   </div>

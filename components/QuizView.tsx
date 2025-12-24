@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Worksheet, QuestionType, ThemeType } from '../types';
 import { MarkerHighlight } from './HandwritingElements';
-import { CheckCircle, XCircle, RefreshCw, BarChart3, Clock } from 'lucide-react';
+import { CheckCircle, XCircle, RefreshCw, BarChart3, Clock, AlertCircle } from 'lucide-react';
 
 interface QuizAttempt {
   score: number;
@@ -90,6 +90,9 @@ export const QuizView: React.FC<QuizViewProps> = ({ worksheet, theme, onExit }) 
     const updatedHistory = [newAttempt, ...history].slice(0, 10); // Keep last 10 attempts
     setHistory(updatedHistory);
     localStorage.setItem(historyKey, JSON.stringify(updatedHistory));
+    
+    // Scroll to top to see results
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const resetQuiz = () => {
@@ -124,7 +127,7 @@ export const QuizView: React.FC<QuizViewProps> = ({ worksheet, theme, onExit }) 
           <h1 className={`${isCreative ? 'font-handwriting-header text-5xl' : 'text-3xl font-bold'} text-slate-800`}>
             {isCreative ? <MarkerHighlight>{worksheet.title}</MarkerHighlight> : worksheet.title}
           </h1>
-          <p className="text-slate-500 mt-2">{worksheet.topic} • {worksheet.gradeLevel}</p>
+          <p className="text-slate-500 mt-2">{worksheet.topic} • {worksheet.educationalLevel}</p>
         </div>
         <div className="flex gap-4">
           {!submitted && Object.keys(answers).length > 0 && (
@@ -144,64 +147,108 @@ export const QuizView: React.FC<QuizViewProps> = ({ worksheet, theme, onExit }) 
         </div>
       </div>
 
+      {submitted && (
+        <div className="mb-10 animate-in zoom-in duration-500">
+           <div className={`p-8 rounded-[2rem] text-center shadow-xl bg-white border-4 flex flex-col items-center ${isCreative ? 'border-yellow-400' : 'border-blue-500'}`}>
+              <div className="text-6xl font-black mb-2 text-slate-800">
+                {score} / {worksheet.questions.length}
+              </div>
+              <p className="text-slate-500 font-bold uppercase tracking-widest text-xs mb-6">Digital Practice Final Result</p>
+              
+              <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden mb-6 max-w-md">
+                 <div 
+                   className={`h-full transition-all duration-1000 ${score/worksheet.questions.length >= 0.8 ? 'bg-green-500' : score/worksheet.questions.length >= 0.5 ? 'bg-yellow-500' : 'bg-red-500'}`} 
+                   style={{ width: `${(score / worksheet.questions.length) * 100}%` }}
+                 />
+              </div>
+
+              <div className="flex gap-4 justify-center">
+                <button 
+                  onClick={resetQuiz}
+                  className="flex items-center gap-2 px-6 py-3 bg-slate-100 text-slate-700 rounded-2xl font-black hover:bg-slate-200 transition active:scale-95 shadow-sm"
+                >
+                  <RefreshCw className="w-5 h-5" /> Retake Quiz
+                </button>
+                <button 
+                  onClick={onExit}
+                  className={`px-8 py-3 text-white rounded-2xl font-black transition shadow-lg active:scale-95 ${
+                    isCreative ? 'bg-yellow-500 hover:bg-yellow-600' : 'bg-blue-600 hover:bg-blue-700'
+                  }`}
+                >
+                  Return to Worksheet
+                </button>
+              </div>
+           </div>
+        </div>
+      )}
+
       <div className="space-y-8">
         {worksheet.questions.map((q, idx) => {
-          const isCorrect = answers[q.id]?.toLowerCase().trim() === q.correctAnswer.toLowerCase().trim();
+          const userAnswerRaw = answers[q.id] || '';
+          const isCorrect = userAnswerRaw.toLowerCase().trim() === q.correctAnswer.toLowerCase().trim();
           
           return (
-            <div key={q.id} className={`p-6 rounded-2xl border-2 transition-all ${
+            <div key={q.id} className={`p-6 sm:p-8 rounded-[2rem] border-2 transition-all ${
               isCreative 
                 ? 'bg-white border-slate-100 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.05)]' 
                 : 'bg-white border-slate-200'
             }`}>
-              <div className="flex items-start gap-3 mb-4">
-                <span className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-bold ${
-                  isCreative ? 'bg-yellow-100 text-yellow-700' : 'bg-slate-100 text-slate-600'
+              <div className="flex items-start gap-4 mb-6">
+                <span className={`flex-shrink-0 w-10 h-10 rounded-2xl flex items-center justify-center font-black text-lg ${
+                  isCreative ? 'bg-yellow-100 text-yellow-700 rotate-3' : 'bg-slate-100 text-slate-600'
                 }`}>
                   {idx + 1}
                 </span>
-                <h3 className={`text-xl font-semibold leading-tight ${isCreative ? 'font-handwriting-body' : ''}`}>
-                  {q.question}
-                  {q.isChallenge && <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800">Challenge!</span>}
-                </h3>
+                <div className="flex-1">
+                  <h3 className={`text-xl sm:text-2xl font-bold leading-tight ${isCreative ? 'font-handwriting-body' : ''}`}>
+                    {q.question}
+                    {q.isChallenge && <span className="ml-3 inline-flex items-center px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-purple-100 text-purple-800 shadow-sm border border-purple-200">Challenge</span>}
+                  </h3>
+                </div>
               </div>
 
-              <div className="ml-11 space-y-3">
-                {q.type === QuestionType.MCQ && q.options?.map((opt, i) => (
-                  <label key={i} className={`flex items-center p-3 rounded-xl border-2 cursor-pointer transition-all ${
-                    answers[q.id] === opt 
-                      ? (isCreative ? 'border-yellow-400 bg-yellow-50' : 'border-blue-500 bg-blue-50')
-                      : 'border-slate-50 hover:border-slate-200'
-                  }`}>
-                    <input 
-                      type="radio" 
-                      name={q.id} 
-                      className="hidden" 
-                      checked={answers[q.id] === opt}
-                      onChange={() => handleAnswerChange(q.id, opt)}
-                    />
-                    <span className={`w-5 h-5 rounded-full border-2 mr-3 flex items-center justify-center ${
-                      answers[q.id] === opt 
-                        ? (isCreative ? 'border-yellow-500 bg-yellow-500' : 'border-blue-600 bg-blue-600') 
-                        : 'border-slate-300'
-                    }`}>
-                      {answers[q.id] === opt && <div className="w-2 h-2 rounded-full bg-white" />}
-                    </span>
-                    <span className={`text-lg ${answers[q.id] === opt ? 'font-black' : ''}`}>{opt}</span>
-                  </label>
-                ))}
+              <div className="ml-0 sm:ml-14 space-y-3">
+                {q.type === QuestionType.MCQ && (
+                  <div className="grid grid-cols-1 gap-3">
+                    {q.options?.map((opt, i) => (
+                      <label key={i} className={`flex items-center p-4 rounded-2xl border-2 cursor-pointer transition-all ${
+                        answers[q.id] === opt 
+                          ? (isCreative ? 'border-yellow-400 bg-yellow-50' : 'border-blue-500 bg-blue-50')
+                          : 'border-slate-50 hover:border-slate-100'
+                      } ${submitted ? 'cursor-default' : ''}`}>
+                        <input 
+                          type="radio" 
+                          name={q.id} 
+                          className="hidden" 
+                          checked={answers[q.id] === opt}
+                          disabled={submitted}
+                          onChange={() => handleAnswerChange(q.id, opt)}
+                        />
+                        <span className={`w-6 h-6 rounded-full border-2 mr-4 flex items-center justify-center transition-colors ${
+                          answers[q.id] === opt 
+                            ? (isCreative ? 'border-yellow-500 bg-yellow-500' : 'border-blue-600 bg-blue-600') 
+                            : 'border-slate-300'
+                        }`}>
+                          {answers[q.id] === opt && <div className="w-2.5 h-2.5 rounded-full bg-white shadow-sm" />}
+                        </span>
+                        <span className={`text-lg transition-all ${answers[q.id] === opt ? 'font-black text-slate-900' : 'text-slate-600 font-medium'}`}>{opt}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
 
                 {q.type === QuestionType.TF && (
-                  <div className="flex gap-4">
+                  <div className="flex flex-wrap gap-4">
                     {['True', 'False'].map(val => (
                       <button
                         key={val}
+                        disabled={submitted}
                         onClick={() => handleAnswerChange(q.id, val)}
-                        className={`px-6 py-2 rounded-xl border-2 font-bold transition-all ${
+                        className={`px-10 py-3 rounded-2xl border-2 font-black text-lg transition-all shadow-sm active:scale-95 ${
                           answers[q.id] === val
                             ? (isCreative ? 'border-yellow-400 bg-yellow-50 text-yellow-700' : 'border-blue-500 bg-blue-50 text-blue-700')
-                            : 'border-slate-100 text-slate-400 hover:border-slate-200'
-                        }`}
+                            : 'border-slate-100 text-slate-400 hover:border-slate-200 bg-white'
+                        } ${submitted ? 'active:scale-100' : ''}`}
                       >
                         {val}
                       </button>
@@ -209,46 +256,73 @@ export const QuizView: React.FC<QuizViewProps> = ({ worksheet, theme, onExit }) 
                   </div>
                 )}
 
-                {q.type === QuestionType.SHORT_ANSWER && (
-                  <input 
-                    type="text"
-                    placeholder="Type your answer here..."
-                    value={answers[q.id] || ''}
-                    onChange={(e) => handleAnswerChange(q.id, e.target.value)}
-                    className={`w-full p-4 rounded-xl border-2 bg-slate-50 focus:outline-none focus:ring-2 ${
-                      isCreative ? 'font-handwriting-body text-xl border-slate-100 focus:ring-yellow-400' : 'border-slate-200 focus:ring-blue-500'
-                    }`}
-                  />
+                {(q.type === QuestionType.SHORT_ANSWER || q.type === QuestionType.VOCABULARY) && (
+                  <div className="relative">
+                    <input 
+                      type="text"
+                      disabled={submitted}
+                      placeholder="Type your answer here..."
+                      value={answers[q.id] || ''}
+                      onChange={(e) => handleAnswerChange(q.id, e.target.value)}
+                      className={`w-full p-5 rounded-2xl border-2 transition-all text-xl font-bold shadow-inner ${
+                        isCreative 
+                          ? 'font-handwriting-body bg-slate-50 border-slate-100 focus:ring-4 focus:ring-yellow-100 focus:border-yellow-400 outline-none' 
+                          : 'bg-white border-slate-200 focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none'
+                      } ${submitted ? 'bg-slate-50' : ''}`}
+                    />
+                  </div>
                 )}
               </div>
 
               {submitted && (
-                <div className={`mt-6 ml-11 p-5 rounded-2xl flex items-start gap-4 animate-in fade-in slide-in-from-top-2 duration-300 ${
+                <div className={`mt-8 ml-0 sm:ml-14 p-6 rounded-[2rem] border-2 animate-in fade-in slide-in-from-top-4 duration-500 ${
                   isCorrect
-                    ? 'bg-green-50 text-green-900 border border-green-200'
-                    : 'bg-red-50 text-red-900 border border-red-200'
+                    ? 'bg-green-50/50 border-green-200 text-green-900'
+                    : 'bg-red-50/50 border-red-200 text-red-900 shadow-sm'
                 }`}>
-                  {isCorrect 
-                    ? <CheckCircle className="w-6 h-6 mt-1 text-green-600 flex-shrink-0" /> 
-                    : <XCircle className="w-6 h-6 mt-1 text-red-600 flex-shrink-0" />
-                  }
-                  <div className="flex-1">
-                    <p className="font-black text-lg mb-3">
-                      {isCorrect ? 'Correct!' : 'Incorrect'}
-                    </p>
-                    
-                    <div className="space-y-4">
-                      <div className="bg-white/60 p-3 rounded-lg border border-current/10">
-                        <p className="text-[10px] font-black uppercase tracking-widest opacity-60 mb-1">Official Solution:</p>
-                        <p className="text-base font-bold">{q.correctAnswer}</p>
+                  <div className="flex items-start gap-4">
+                    {isCorrect 
+                      ? <CheckCircle className="w-8 h-8 text-green-600 flex-shrink-0" /> 
+                      : <XCircle className="w-8 h-8 text-red-600 flex-shrink-0" />
+                    }
+                    <div className="flex-1">
+                      <div className="flex justify-between items-center mb-4">
+                        <p className="font-black text-xl uppercase tracking-widest">
+                          {isCorrect ? 'Stellar Work!' : 'Almost There!'}
+                        </p>
+                        <span className={`px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-[0.2em] shadow-sm ${
+                          isCorrect ? 'bg-green-200 text-green-700' : 'bg-red-200 text-red-700'
+                        }`}>
+                          {isCorrect ? 'Verified Correct' : 'Needs Review'}
+                        </span>
                       </div>
+                      
+                      <div className="space-y-5">
+                        {!isCorrect && (
+                          <div className="bg-white/40 p-4 rounded-2xl border border-red-200/50">
+                            <p className="text-[10px] font-black uppercase tracking-widest opacity-60 mb-2 flex items-center gap-1.5">
+                              <AlertCircle className="w-3 h-3" /> Your Submission:
+                            </p>
+                            <p className="text-base font-bold italic line-through opacity-70">
+                              {userAnswerRaw || <span className="opacity-40">[ No Answer Provided ]</span>}
+                            </p>
+                          </div>
+                        )}
 
-                      {q.explanation && (
-                        <div className="pt-1">
-                          <p className="text-[10px] font-black uppercase tracking-widest opacity-60 mb-1">Context & Explanation:</p>
-                          <p className="text-sm leading-relaxed">{q.explanation}</p>
+                        <div className="bg-white/70 p-4 rounded-2xl border border-current/10 shadow-sm">
+                          <p className={`text-[10px] font-black uppercase tracking-widest mb-2 ${isCorrect ? 'text-green-700/60' : 'text-red-700/60'}`}>Official Solution:</p>
+                          <p className="text-lg font-black">{q.correctAnswer}</p>
                         </div>
-                      )}
+
+                        {q.explanation && (
+                          <div className="pt-2">
+                            <p className="text-[10px] font-black uppercase tracking-widest opacity-60 mb-2">Academic Rationale & Context:</p>
+                            <p className="text-sm leading-relaxed font-medium bg-white/30 p-4 rounded-xl border border-slate-100">
+                              {q.explanation}
+                            </p>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -258,71 +332,43 @@ export const QuizView: React.FC<QuizViewProps> = ({ worksheet, theme, onExit }) 
         })}
       </div>
 
-      <div className="mt-12 sticky bottom-8 flex justify-center flex-col items-center gap-6">
+      <div className="mt-16 sticky bottom-8 flex justify-center flex-col items-center gap-6 no-print">
         {!submitted ? (
           <button 
             onClick={calculateScore}
-            className={`px-12 py-4 rounded-full text-xl font-bold text-white shadow-xl transform transition hover:scale-105 active:scale-95 ${
-              isCreative ? 'bg-yellow-500 hover:bg-yellow-600' : 'bg-blue-600 hover:bg-blue-700'
+            className={`px-16 py-5 rounded-[2rem] text-2xl font-black text-white shadow-2xl transform transition hover:scale-105 active:scale-95 ${
+              isCreative ? 'bg-yellow-500 hover:bg-yellow-600 ring-4 ring-yellow-100' : 'bg-blue-600 hover:bg-blue-700 ring-4 ring-blue-100'
             }`}
           >
-            Submit Quiz
+            Submit All Answers
           </button>
         ) : (
-          <div className="w-full flex flex-col items-center gap-6 animate-in fade-in slide-in-from-bottom-8 duration-500">
-            <div className={`p-8 rounded-3xl text-center shadow-2xl bg-white border-4 min-w-[320px] ${
-              isCreative ? 'border-yellow-400' : 'border-blue-500'
-            }`}>
-              <div className="text-5xl font-bold mb-2">
-                {score} / {worksheet.questions.length}
-              </div>
-              <p className="text-slate-500 font-medium mb-6">Current Attempt Score</p>
-              <div className="flex gap-4 justify-center">
-                <button 
-                  onClick={resetQuiz}
-                  className="flex items-center gap-2 px-6 py-2 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition"
-                >
-                  <RefreshCw className="w-4 h-4" /> Try Again
-                </button>
-                <button 
-                  onClick={onExit}
-                  className={`px-6 py-2 text-white rounded-xl font-bold transition ${
-                    isCreative ? 'bg-yellow-500 hover:bg-yellow-600' : 'bg-blue-600 hover:bg-blue-700'
-                  }`}
-                >
-                  Finish
-                </button>
-              </div>
+          <div className="w-full max-w-md bg-white rounded-[2rem] p-6 shadow-2xl border border-slate-100 animate-in fade-in slide-in-from-bottom-8 duration-500">
+            <div className="flex justify-between items-center mb-6">
+              <h4 className="flex items-center gap-2 font-black text-slate-800 text-xs uppercase tracking-[0.2em]">
+                <BarChart3 className="w-4 h-4 text-blue-500" /> Session History
+              </h4>
+              <button onClick={clearHistory} className="text-[10px] font-black uppercase text-slate-300 hover:text-red-500 transition-colors">Wipe Archive</button>
             </div>
-
-            {history.length > 0 && (
-              <div className="w-full max-w-md bg-white rounded-3xl p-6 shadow-xl border border-slate-100">
-                <div className="flex justify-between items-center mb-4">
-                  <h4 className="flex items-center gap-2 font-black text-slate-800 text-sm uppercase tracking-widest">
-                    <BarChart3 className="w-4 h-4 text-blue-500" /> Performance Archive
-                  </h4>
-                  <button onClick={clearHistory} className="text-[10px] font-black uppercase text-slate-300 hover:text-red-500 transition-colors">Wipe History</button>
+            <div className="space-y-3 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
+              {history.map((attempt, i) => (
+                <div key={i} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 group hover:border-blue-200 transition-all hover:bg-white">
+                  <div className="flex flex-col">
+                    <span className="text-xs font-black text-slate-700">Attempt {history.length - i}</span>
+                    <span className="flex items-center gap-1.5 text-[10px] text-slate-400 font-bold uppercase mt-1">
+                      <Clock className="w-3 h-3" /> {formatDate(attempt.date)}
+                    </span>
+                  </div>
+                  <div className={`px-4 py-2 rounded-xl text-sm font-black shadow-sm ${
+                    (attempt.score / attempt.total) >= 0.8 ? 'bg-green-100 text-green-700' :
+                    (attempt.score / attempt.total) >= 0.5 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'
+                  }`}>
+                    {attempt.score} / {attempt.total}
+                  </div>
                 </div>
-                <div className="space-y-2 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
-                  {history.map((attempt, i) => (
-                    <div key={i} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100 group hover:border-blue-200 transition-colors">
-                      <div className="flex flex-col">
-                        <span className="text-xs font-bold text-slate-700">Attempt {history.length - i}</span>
-                        <span className="flex items-center gap-1 text-[9px] text-slate-400 font-bold uppercase">
-                          <Clock className="w-2 h-2" /> {formatDate(attempt.date)}
-                        </span>
-                      </div>
-                      <div className={`px-3 py-1 rounded-lg text-sm font-black ${
-                        (attempt.score / attempt.total) >= 0.8 ? 'bg-green-100 text-green-700' :
-                        (attempt.score / attempt.total) >= 0.5 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'
-                      }`}>
-                        {attempt.score}/{attempt.total}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+              ))}
+              {history.length === 0 && <p className="text-center py-8 text-xs font-bold text-slate-300 uppercase tracking-widest">No previous attempts</p>}
+            </div>
           </div>
         )}
       </div>

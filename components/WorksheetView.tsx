@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Worksheet, QuestionType, ThemeType, Question } from '../types';
 import { 
   MarkerHighlight, 
@@ -22,17 +22,24 @@ interface WorksheetViewProps {
 }
 
 export const WorksheetView: React.FC<WorksheetViewProps> = ({ worksheet, theme, showKey = false, showDoodles = false }) => {
+  const [userSelections, setUserSelections] = useState<Record<string, string>>({});
   const isCreative = theme === ThemeType.CREATIVE;
   const isClassic = theme === ThemeType.CLASSIC;
   
-  // Professional levels should be more professional and dense
   const isSeniorLevel = worksheet.educationalLevel.includes('High School') || 
                         worksheet.educationalLevel.includes('University') || 
                         worksheet.educationalLevel.includes('Professional');
   
   const isClassicProfessional = isClassic && isSeniorLevel;
 
-  // Logic helpers
+  const handleToggleSelection = (qId: string, value: string) => {
+    if (showKey) return; // Disable clicking when answer key is visible
+    setUserSelections(prev => ({
+      ...prev,
+      [qId]: prev[qId] === value ? '' : value
+    }));
+  };
+
   const getQuestionLength = (q: Question) => {
     let len = q.question.length;
     if (q.options) len += q.options.join('').length;
@@ -202,34 +209,70 @@ export const WorksheetView: React.FC<WorksheetViewProps> = ({ worksheet, theme, 
                     
                     {q.type === QuestionType.MCQ && (
                       <div className={`grid gap-0.5 ml-6 ${getMcqGridCols(q.options)}`}>
-                        {q.options?.map((opt, i) => (
-                          <div key={i} className="flex items-center gap-1.5 group">
-                            <div className={`${isClassicProfessional ? 'w-2.5 h-2.5' : 'w-6 h-6'} flex-shrink-0 border ${isCreative ? 'border-slate-300 rotate-2' : 'border-slate-900 rounded-none'} flex items-center justify-center ${showKey && opt === q.correctAnswer ? 'bg-red-500 border-red-500' : ''}`}>
-                               {isCreative && !showKey && <span className="text-[10px] text-slate-300 font-bold">{String.fromCharCode(65 + i)}</span>}
-                               {showKey && opt === q.correctAnswer && <span className="text-white text-[6px] font-bold">X</span>}
-                            </div>
-                            <span 
-                              contentEditable={isClassic} 
-                              suppressContentEditableWarning={true}
-                              className={`${optionSizeClass} outline-none ${showKey && opt === q.correctAnswer ? 'text-red-700 font-bold' : 'text-slate-700 opacity-90 group-hover:opacity-100'}`}
+                        {q.options?.map((opt, i) => {
+                          const isSelected = userSelections[q.id] === opt;
+                          const isOfficial = showKey && opt === q.correctAnswer;
+                          
+                          return (
+                            <div 
+                              key={i} 
+                              onClick={() => handleToggleSelection(q.id, opt)}
+                              className={`flex items-center gap-1.5 group cursor-pointer p-0.5 rounded-sm transition-all no-print ${
+                                isSelected ? (isCreative ? 'bg-yellow-50/80' : 'bg-blue-50') : 'hover:bg-slate-50'
+                              }`}
                             >
-                              {opt}
-                            </span>
-                          </div>
-                        ))}
+                              <div className={`${isClassicProfessional ? 'w-2.5 h-2.5' : 'w-6 h-6'} flex-shrink-0 border transition-colors ${
+                                isCreative ? 'border-slate-300 rotate-2' : 'border-slate-900 rounded-none'
+                              } flex items-center justify-center ${
+                                isOfficial ? 'bg-red-500 border-red-500' : (isSelected ? 'bg-blue-600 border-blue-600' : '')
+                              }`}>
+                                {isCreative && !showKey && !isSelected && <span className="text-[10px] text-slate-300 font-bold">{String.fromCharCode(65 + i)}</span>}
+                                {(isOfficial || isSelected) && <span className="text-white text-[6px] font-bold">{isOfficial ? 'X' : '✓'}</span>}
+                              </div>
+                              <span 
+                                contentEditable={isClassic} 
+                                suppressContentEditableWarning={true}
+                                className={`${optionSizeClass} outline-none transition-colors ${
+                                  isOfficial ? 'text-red-700 font-bold' : (isSelected ? 'text-blue-800 font-bold' : 'text-slate-700 opacity-90 group-hover:opacity-100')
+                                }`}
+                              >
+                                {opt}
+                              </span>
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                     
                     {q.type === QuestionType.TF && (
                       <div className={`flex gap-6 ${isClassicProfessional ? 'ml-6' : 'ml-12'}`}>
-                         {['True', 'False'].map((v) => (
-                           <span key={v} className={`flex items-center gap-1.5 ${isClassicProfessional ? 'text-[9px]' : 'text-lg'} font-bold ${showKey && v === q.correctAnswer ? 'text-red-700' : 'text-slate-800'}`}>
-                             <div className={`${isClassicProfessional ? 'w-3 h-3' : 'w-8 h-8'} border ${isCreative ? 'border-slate-200 rotate-3' : 'border-slate-900 rounded-none'} flex items-center justify-center text-[7px] ${showKey && v === q.correctAnswer ? 'bg-red-600 border-red-600 text-white shadow-sm' : 'opacity-30'}`}>
-                               {showKey && v === q.correctAnswer ? '✓' : v.charAt(0)}
-                             </div> 
-                             {v}
-                           </span>
-                         ))}
+                         {['True', 'False'].map((v) => {
+                           const isSelected = userSelections[q.id] === v;
+                           const isOfficial = showKey && v === q.correctAnswer;
+                           
+                           return (
+                             <div 
+                               key={v} 
+                               onClick={() => handleToggleSelection(q.id, v)}
+                               className={`flex items-center gap-1.5 group cursor-pointer p-1 rounded-lg transition-all no-print ${
+                                 isSelected ? (isCreative ? 'bg-yellow-50' : 'bg-blue-50') : 'hover:bg-slate-50'
+                               }`}
+                             >
+                               <div className={`${isClassicProfessional ? 'w-3 h-3' : 'w-8 h-8'} border transition-colors ${
+                                 isCreative ? 'border-slate-200 rotate-3' : 'border-slate-900 rounded-none'
+                               } flex items-center justify-center text-[7px] ${
+                                 isOfficial ? 'bg-red-600 border-red-600 text-white' : (isSelected ? 'bg-blue-600 border-blue-600 text-white' : 'opacity-30')
+                               }`}>
+                                 {isOfficial ? '✓' : (isSelected ? '✓' : v.charAt(0))}
+                               </div> 
+                               <span className={`${isClassicProfessional ? 'text-[9px]' : 'text-lg'} font-bold transition-colors ${
+                                 isOfficial ? 'text-red-700' : (isSelected ? 'text-blue-800' : 'text-slate-800')
+                               }`}>
+                                 {v}
+                               </span>
+                             </div>
+                           );
+                         })}
                       </div>
                     )}
                   </div>
