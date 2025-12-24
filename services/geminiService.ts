@@ -51,41 +51,38 @@ export async function generateWorksheet(options: GenerationOptions): Promise<Wor
   const isSeniorLevel = gradeLevel === 'High School' || gradeLevel === 'University';
 
   const systemInstruction = `
-    You are an expert senior academic content developer for "Homework Hero". 
-    Your mission is to generate a rigorous, fack-checked, and professional worksheet.
+    You are an elite academic curriculum designer. Your goal is to produce university-entrance level assessment materials.
     
     ACADEMIC RIGOR & TONE:
     - Grade Level: ${gradeLevel}
-    - Difficulty: ${difficulty}
+    - Difficulty Level: ${difficulty}
     - Language: ${language}
-    - For ${gradeLevel} and above, the tone must be serious, professional, and dense. Avoid "fun" or juvenile language.
-    - Factual accuracy is paramount. Use precise academic terminology.
+    - For ${gradeLevel}+: The assessment must be academically rigorous, intellectually demanding, and factually flawless.
+    - Use high-level academic vocabulary and complex sentence structures in the questions.
+    - Focus on synthesis, evaluation, and critical analysis rather than simple recall.
 
-    NO-TRACING RULE FOR SENIOR LEVELS:
-    - If the Grade Level is "High School" or "University":
-      - DO NOT generate any "tracing" or "copying" tasks. 
-      - Even if the user requests DRILL types, transform them into rigorous analytical questions. 
-      - Character/Sentence drills are strictly for primary education and MUST NOT appear in senior worksheets.
-      - Instead of tracing, focus on deep conceptual understanding, synthesis of information, and critical analysis.
+    STRICT SENIOR LEVEL RULES (High School & University):
+    1. NO TRACING: Never generate tasks that involve tracing letters or words.
+    2. NO COPYING: Never ask the student to "copy the question" or "rewrite the sentence exactly". This is infantile for senior levels.
+    3. TRANSFORMATION: If "Drill" types are requested for senior levels, transform them into "Formula Application" or "Data Interpretation" tasks.
+    4. NO JUVENILE CONTENT: Remove all mentions of "fun", "games", or "puzzles". This is a formal examination/assignment.
+    5. Factual Accuracy: All information must be strictly accurate. Cite specific scientific laws, historical dates, or literary theories where applicable.
 
-    TITLE RULE:
-    - If a specific title is provided: "${customTitle || 'None'}", use it.
-    - If no title is provided, generate a formal academic title based on the topic.
+    TITLE:
+    - Title should be: "${customTitle || 'Advanced Academic Assessment: ' + topic}"
 
-    QUESTION MIX (Mandatory counts):
+    ITEM DISTRIBUTION:
 ${countInstruction}
     
-    5. Types definition:
-       - MCQ: Multiple choice (4 rigorous options)
-       - TF: True/False (Factually challenging)
-       - SHORT_ANSWER: Open response / Analytical essay
-       - VOCABULARY: Advanced terminology in context
-       - CHARACTER_DRILL: (Junior only) Single character practice
-       - SYMBOL_DRILL: (Junior/STEM) Symbol practice
-       - SENTENCE_DRILL: (Junior only) Narrative flow tracing
+    TYPES DEFINITION:
+       - MCQ: Complex distractors requiring logical elimination.
+       - TF: Subtle, nuanced statements that test edge cases of a concept.
+       - SHORT_ANSWER: Multi-sentence analytical justifications or proofs.
+       - VOCABULARY: Etymology, nuanced usage, or discipline-specific jargon in context.
+       - DRILLS: Only for Junior levels. For Senior, ignore tracing and make them short-form proofs or identifications.
 
-    6. Challenges: Mark complex, multi-step, or abstract reasoning items with "isChallenge: true".
-    7. Context: Synthesize all inputs (scans, text) into a logical and challenging academic assessment.
+    COMPLEXITY MARKER:
+    Set "isChallenge: true" for items that require abstract reasoning or cross-disciplinary knowledge.
   `;
 
   parts.push({ text: systemInstruction });
@@ -97,18 +94,20 @@ ${countInstruction}
         mimeType: fileData.mimeType
       }
     });
-    parts.push({ text: "SOURCE MATERIAL: Analyze the provided document for key academic concepts and data points." });
+    parts.push({ text: "ANALYSIS TASK: Deconstruct the uploaded source material and integrate its most complex data/theory points into the assessment." });
   }
 
   if (rawText) {
-    parts.push({ text: `REFERENCE TEXT:\n---\n${rawText}\n---` });
+    parts.push({ text: `REFERENCE CORPUS:\n---\n${rawText}\n---` });
   }
 
-  parts.push({ text: `INSTRUCTIONAL FOCUS: ${topic}` });
+  parts.push({ text: `PRIMARY FOCUS AREA: ${topic}` });
 
-  // Use gemini-3-pro-preview for senior academic rigor
+  // Always use Pro for Senior Level for maximum "Perplexity" / Reasoning depth
+  const modelToUse = isSeniorLevel ? 'gemini-3-pro-preview' : 'gemini-3-flash-preview';
+
   const response = await ai.models.generateContent({
-    model: isSeniorLevel ? "gemini-3-pro-preview" : "gemini-3-flash-preview",
+    model: modelToUse,
     contents: { parts },
     config: {
       responseMimeType: "application/json",
@@ -124,10 +123,7 @@ ${countInstruction}
               type: Type.OBJECT,
               properties: {
                 id: { type: Type.STRING },
-                type: { 
-                  type: Type.STRING,
-                  description: "Must be one of the specified types"
-                },
+                type: { type: Type.STRING },
                 question: { type: Type.STRING },
                 options: { 
                   type: Type.ARRAY,
@@ -154,6 +150,6 @@ ${countInstruction}
     return data as Worksheet;
   } catch (error) {
     console.error("Failed to parse Gemini response", error);
-    throw new Error("Failed to generate content.");
+    throw new Error("Assessment generation failed due to data inconsistency.");
   }
 }
