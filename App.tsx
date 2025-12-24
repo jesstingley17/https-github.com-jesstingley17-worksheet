@@ -46,7 +46,8 @@ import {
   Wand2,
   Printer,
   FileDown,
-  FastForward
+  FastForward,
+  FileJson
 } from 'lucide-react';
 
 const WorksheetSkeleton: React.FC<{ theme: ThemeType }> = ({ theme }) => {
@@ -372,6 +373,19 @@ const App: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleExportJSON = () => {
+    if (!worksheet) return;
+    const dataStr = JSON.stringify(worksheet, null, 2);
+    const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+    
+    const exportFileDefaultName = `${(worksheet.title || 'worksheet').replace(/\s+/g, '_').toLowerCase()}_data.json`;
+    
+    const linkElement = document.createElement('a');
+    linkElement.setAttribute('href', dataUri);
+    linkElement.setAttribute('download', exportFileDefaultName);
+    linkElement.click();
   };
 
   const updateCount = (type: QuestionType, delta: number) => {
@@ -917,6 +931,9 @@ const App: React.FC = () => {
                       <p className="font-bold text-slate-600">Generated View</p>
                     </div>
                     <div className="flex gap-2">
+                       <button onClick={handleExportJSON} title="Download structured data" className="flex items-center gap-2 px-4 py-2 bg-white border-2 border-slate-100 text-slate-600 rounded-xl font-bold hover:border-purple-400 hover:text-purple-600 transition-all">
+                        <FileJson className="w-4 h-4" /> Export JSON
+                       </button>
                        <button onClick={handleExportPDF} className="flex items-center gap-2 px-4 py-2 bg-white border-2 border-slate-100 text-slate-700 rounded-xl font-bold hover:border-blue-400 hover:text-blue-600 transition-all">
                         <FileDown className="w-4 h-4" /> Download PDF
                        </button>

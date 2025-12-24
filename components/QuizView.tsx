@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Worksheet, QuestionType, ThemeType } from '../types';
 // Fixed: Removed unused DoodleStar import
@@ -97,7 +96,7 @@ export const QuizView: React.FC<QuizViewProps> = ({ worksheet, theme, onExit }) 
                   }`}>
                     {answers[q.id] === opt && <div className="w-2 h-2 rounded-full bg-white" />}
                   </span>
-                  <span className="text-lg">{opt}</span>
+                  <span className={`text-lg ${answers[q.id] === opt ? 'font-bold' : ''}`}>{opt}</span>
                 </label>
               ))}
 
