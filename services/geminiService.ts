@@ -15,6 +15,8 @@ export interface GenerationOptions {
   fileData?: { data: string; mimeType: string };
   pageTarget?: number;
   includeTracing?: boolean;
+  includeDiagram?: boolean;
+  diagramLabelType?: 'LABELED' | 'BLANK';
 }
 
 export interface AnalysisResult {
@@ -101,14 +103,81 @@ export async function generateTopicScopeSuggestion(title: string, ageGroup: stri
   }
 }
 
+export async function generateDoodles(topic: string, gradeLevel: string): Promise<string[]> {
+  const isSenior = gradeLevel.includes('High School') || gradeLevel.includes('University') || gradeLevel.includes('Professional');
+  const style = isSenior ? "technical diagrams, minimalist scientific icons, and neat marginalia" : "cute, friendly, thick-lined cartoon icons and simple educational symbols";
+  
+  const prompt = `A grid of 4 separate, distinct, high-quality black and white hand-drawn line art doodles. 
+  Theme: ${topic}. 
+  Style: ${style}. 
+  Important: The doodles must be isolated on a pure white background, no shading, bold outlines only. Do not include any text. Each doodle should be about a different aspect of ${topic}.`;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash-image',
+      contents: { parts: [{ text: prompt }] },
+      config: { imageConfig: { aspectRatio: "1:1" } }
+    });
+
+    for (const part of response.candidates[0].content.parts) {
+      if (part.inlineData) {
+        return [`data:image/png;base64,${part.inlineData.data}`];
+      }
+    }
+  } catch (e) {
+    console.error("Doodle generation failed", e);
+  }
+  return [];
+}
+
 export async function generateWorksheet(options: GenerationOptions): Promise<Worksheet> {
-  const { topic, customTitle, gradeLevel, difficulty, language, questionCounts, rawText, fileData, pageTarget = 1, includeTracing = false } = options;
+  const { 
+    topic, 
+    customTitle, 
+    gradeLevel, 
+    difficulty, 
+    language, 
+    questionCounts, 
+    rawText, 
+    fileData, 
+    pageTarget = 1, 
+    includeTracing = false,
+    includeDiagram = false,
+    diagramLabelType = 'LABELED'
+  } = options;
 
   const isPreschool = gradeLevel.includes("Preschool");
+  let diagramImageBase64 = '';
+
+  // Generate Diagram if requested and not preschool
+  if (includeDiagram && !isPreschool) {
+    const labelInstruction = diagramLabelType === 'BLANK' 
+      ? "Include clear arrows or lines pointing to key components, but leave the label text areas completely blank or empty so students can write them in."
+      : "Include clear, professional text labels for all key components and parts.";
+    
+    const diagramPrompt = `A high-quality, academic technical diagram for ${topic} at a ${gradeLevel} level. Style: Scientific line art, black and white, clean and professional. ${labelInstruction} The background must be pure white. No shading, just bold, clean outlines.`;
+
+    try {
+      const diagResponse = await ai.models.generateContent({
+        model: 'gemini-2.5-flash-image',
+        contents: { parts: [{ text: diagramPrompt }] },
+        config: { imageConfig: { aspectRatio: "16:9" } }
+      });
+
+      for (const part of diagResponse.candidates[0].content.parts) {
+        if (part.inlineData) {
+          diagramImageBase64 = `data:image/png;base64,${part.inlineData.data}`;
+          break;
+        }
+      }
+    } catch (e) {
+      console.error("Diagram generation failed", e);
+    }
+  }
 
   if (isPreschool) {
-    // Specialized preschool logic: Generate a coloring page
-    const imagePrompt = `A simple, bold black and white line art coloring page for a preschool child (ages 3-5). The subject is: ${topic}. Big, clear shapes, no shading, clean outlines only. Educational and fun style.`;
+    // Specialized preschool logic: Generate a coloring page with NO text inside the image
+    const imagePrompt = `A high-quality, simple, bold black and white line art coloring page for a preschool child. The subject is: ${topic}. Big, clear shapes, clean outlines only. IMPORTANT: The image must contain NO text, NO words, NO labels, and NO letters inside the drawing area. Only visual line art.`;
     
     try {
       const imgResponse = await ai.models.generateContent({
@@ -133,10 +202,10 @@ export async function generateWorksheet(options: GenerationOptions): Promise<Wor
 
       let questions: any[] = [];
       if (includeTracing) {
-        const tracingPrompt = `For a preschool child learning about "${topic}", suggest 2-3 very simple words or one short 3-word sentence to trace.
+        const tracingPrompt = `For a preschool child learning about "${topic}", suggest 2 very simple words related to it for tracing practice.
         Return in JSON format:
         {
-          "tracingItems": ["WORD1", "WORD2", "Short Sentence"]
+          "tracingItems": ["WORD1", "WORD2"]
         }`;
 
         const textResponse = await ai.models.generateContent({
@@ -158,9 +227,9 @@ export async function generateWorksheet(options: GenerationOptions): Promise<Wor
         questions = (tracingData.tracingItems || []).map((text: string, i: number) => ({
           id: `trace-${i}`,
           type: QuestionType.SENTENCE_DRILL,
-          question: `Trace the word: ${text}`,
+          question: `Trace: ${text}`,
           correctAnswer: text,
-          explanation: "Fine motor skill development through tracing.",
+          explanation: "Fine motor skill development.",
           isChallenge: false
         }));
       }
@@ -178,14 +247,7 @@ export async function generateWorksheet(options: GenerationOptions): Promise<Wor
         title: customTitle || `Coloring Activity: ${topic}`,
         topic: topic,
         educationalLevel: gradeLevel,
-        questions: [{
-          id: 'preschool-msg',
-          type: QuestionType.SENTENCE_DRILL,
-          question: `Let's learn about ${topic}! Draw a big picture of it in the box below.`,
-          correctAnswer: topic,
-          explanation: "Preschoolers learn best through visual and motor activities.",
-          isChallenge: false
-        }]
+        questions: []
       };
     }
   }
@@ -198,7 +260,8 @@ export async function generateWorksheet(options: GenerationOptions): Promise<Wor
     .map(([type, count]) => `- ${count} items of type ${type}`)
     .join('\n');
 
-  const isSeniorLevel = gradeLevel === 'High School' || gradeLevel === 'University' || gradeLevel === 'University / College' || gradeLevel === 'Professional / Adult';
+  const isSeniorLevel = gradeLevel === 'High School' || gradeLevel === 'University / College' || gradeLevel === 'Professional / Adult';
+  const isAdvancedLevel = gradeLevel === 'University / College' || gradeLevel === 'Professional / Adult';
 
   const systemInstruction = `
     You are an elite academic curriculum designer. Your goal is to produce university-entrance level assessment materials.
@@ -211,6 +274,14 @@ export async function generateWorksheet(options: GenerationOptions): Promise<Wor
     - For Senior levels: The assessment must be academically rigorous, intellectually demanding, and factually flawless.
     - Use high-level academic vocabulary and complex sentence structures in the questions.
     - Focus on synthesis, evaluation, and critical analysis rather than simple recall.
+
+    ${isAdvancedLevel ? `
+    ADVANCED LEVEL SPECIAL INSTRUCTIONS (University/Professional):
+    - Abstract Reasoning: Design questions that require applying theoretical frameworks to novel, abstract, or highly technical scenarios.
+    - Complex Problem Solving: For technical topics, include multi-step problems that involve variables, derivation, or complex logical chains.
+    - Detailed Explanations: The "explanation" field for each question must be an academic-grade paragraph. It should explain the conceptual underpinnings, why the correct answer is logically necessary, and common theoretical pitfalls.
+    - Case Study Context: For professional levels, frame questions within realistic industry case studies or advanced research contexts.
+    ` : ''}
 
     STRICT SENIOR LEVEL RULES:
     1. NO TRACING: Never generate tasks that involve tracing letters or words.
@@ -301,7 +372,12 @@ ${countInstruction}
     if (customTitle && customTitle.trim() !== "") {
       data.title = customTitle;
     }
-    return data as Worksheet;
+    // Assign generated diagram if any
+    const finalWorksheet = data as Worksheet;
+    if (diagramImageBase64) {
+      finalWorksheet.diagramImage = diagramImageBase64;
+    }
+    return finalWorksheet;
   } catch (error) {
     console.error("Failed to parse Gemini response", error);
     throw new Error("Assessment generation failed due to data inconsistency.");

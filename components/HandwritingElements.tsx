@@ -1,5 +1,7 @@
 
-import React from 'react';
+import React, { useState } from 'react';
+import { Image as ImageIcon, Sparkles, Loader2, X } from 'lucide-react';
+import { generateDoodles } from '../services/geminiService';
 
 export const MarkerHighlight: React.FC<{ children: React.ReactNode; className?: string; color?: string }> = ({ children, className, color = 'rgba(253, 224, 71, 0.4)' }) => (
   <span 
@@ -125,3 +127,78 @@ export const HandDrawnDivider = ({ label }: { label?: string }) => (
     <div className="flex-1 h-[2px] bg-slate-900 rounded-full"></div>
   </div>
 );
+
+interface DoodlePaletteProps {
+  topic: string;
+  gradeLevel: string;
+  onDoodleSelect: (doodleUrl: string) => void;
+}
+
+export const DoodlePalette: React.FC<DoodlePaletteProps> = ({ topic, gradeLevel, onDoodleSelect }) => {
+  const [doodles, setDoodles] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
+
+  const fetchDoodles = async () => {
+    setLoading(true);
+    try {
+      const generated = await generateDoodles(topic, gradeLevel);
+      setDoodles(generated);
+      setIsOpen(true);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="no-print fixed bottom-8 right-8 z-[100] flex flex-col items-end gap-4">
+      {isOpen && doodles.length > 0 && (
+        <div className="bg-white p-6 rounded-[2.5rem] shadow-2xl border-4 border-yellow-400 w-72 animate-in slide-in-from-bottom-4 duration-300">
+          <div className="flex justify-between items-center mb-4">
+            <h4 className="font-handwriting-header text-2xl text-slate-800">Doodle Styles</h4>
+            <button onClick={() => setIsOpen(false)} className="p-1 hover:bg-slate-100 rounded-full">
+              <X className="w-5 h-5 text-slate-400" />
+            </button>
+          </div>
+          <p className="text-[10px] uppercase font-black text-slate-400 tracking-widest mb-4">Click to add to sheet</p>
+          <div className="grid grid-cols-1 gap-4">
+            {doodles.map((url, i) => (
+              <button 
+                key={i}
+                onClick={() => onDoodleSelect(url)}
+                className="relative group aspect-square rounded-2xl overflow-hidden border-2 border-slate-100 hover:border-yellow-400 transition-all hover:scale-[1.02] bg-slate-50"
+              >
+                <img src={url} alt={`Doodle style ${i}`} className="w-full h-full object-contain mix-blend-multiply p-2" />
+                <div className="absolute inset-0 bg-yellow-400/10 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                  <Sparkles className="w-8 h-8 text-yellow-600 drop-shadow-sm" />
+                </div>
+              </button>
+            ))}
+          </div>
+          <button 
+            onClick={fetchDoodles}
+            disabled={loading}
+            className="w-full mt-6 py-3 bg-slate-900 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-800 transition-colors flex items-center justify-center gap-2"
+          >
+            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+            Regenerate
+          </button>
+        </div>
+      )}
+
+      <button 
+        onClick={isOpen ? () => setIsOpen(false) : fetchDoodles}
+        disabled={loading}
+        className={`w-16 h-16 rounded-full flex items-center justify-center shadow-2xl transition-all active:scale-95 ${
+          loading ? 'bg-slate-100 animate-pulse cursor-wait' : 'bg-yellow-400 hover:bg-yellow-500 hover:rotate-12'
+        }`}
+      >
+        {loading ? (
+          <Loader2 className="w-8 h-8 text-yellow-600 animate-spin" />
+        ) : (
+          <ImageIcon className="w-8 h-8 text-yellow-900" />
+        )}
+      </button>
+    </div>
+  );
+};

@@ -55,7 +55,10 @@ import {
   FileStack,
   Palette,
   MousePointer2,
-  Sigma
+  Sigma,
+  Box,
+  Tags,
+  Image as ImageIcon
 } from 'lucide-react';
 
 const WorksheetSkeleton: React.FC<{ theme: ThemeType }> = ({ theme }) => {
@@ -119,6 +122,8 @@ const App: React.FC = () => {
     rawText: string;
     pageCount: number;
     includeTracing: boolean;
+    includeDiagram: boolean;
+    diagramLabelType: 'LABELED' | 'BLANK';
     questionCounts: Record<QuestionType, number>;
   }>({
     topic: '',
@@ -129,6 +134,8 @@ const App: React.FC = () => {
     rawText: '',
     pageCount: 1,
     includeTracing: false,
+    includeDiagram: false,
+    diagramLabelType: 'LABELED',
     questionCounts: {
       [QuestionType.MCQ]: 2,
       [QuestionType.TF]: 2,
@@ -330,6 +337,8 @@ const App: React.FC = () => {
         rawText: '',
         pageCount: 1,
         includeTracing: false,
+        includeDiagram: false,
+        diagramLabelType: 'LABELED' as const,
         questionCounts: {
           [QuestionType.MCQ]: 2,
           [QuestionType.TF]: 2,
@@ -410,8 +419,8 @@ const App: React.FC = () => {
   };
 
   const handleGenerate = async () => {
-    if (!isPreschool && totalQuestions === 0) {
-      alert("Please select at least one question type count.");
+    if (!isPreschool && totalQuestions === 0 && !formData.includeDiagram) {
+      alert("Please select at least one question type count or include a diagram.");
       return;
     }
     if (!formData.topic.trim()) {
@@ -430,6 +439,8 @@ const App: React.FC = () => {
         questionCounts: formData.questionCounts,
         pageTarget: formData.pageCount,
         includeTracing: formData.includeTracing,
+        includeDiagram: formData.includeDiagram,
+        diagramLabelType: formData.diagramLabelType,
         fileData: fileData || undefined,
         rawText: formData.rawText || undefined,
       });
@@ -956,6 +967,50 @@ const App: React.FC = () => {
                                     </div>
                                   </div>
                                 </div>
+                                
+                                <div className="pt-6 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-6">
+                                   <div className="flex flex-col gap-2">
+                                     <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                                       <Box className="w-4 h-4 text-purple-500" /> Advanced Visuals
+                                     </h4>
+                                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Topic-specific technical drawings</p>
+                                   </div>
+                                   
+                                   <div className="flex flex-wrap items-center gap-4 bg-white p-3 rounded-2xl border border-slate-100 shadow-sm">
+                                      <button 
+                                        onClick={() => setFormData(prev => ({ ...prev, includeDiagram: !prev.includeDiagram }))}
+                                        className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-xs uppercase tracking-widest transition-all ${
+                                          formData.includeDiagram 
+                                          ? 'bg-purple-600 text-white shadow-lg' 
+                                          : 'bg-slate-50 text-slate-400 hover:bg-slate-100'
+                                        }`}
+                                      >
+                                        <ImageIcon className="w-4 h-4" />
+                                        {formData.includeDiagram ? 'Diagram Included' : 'Add Diagram?'}
+                                      </button>
+                                      
+                                      {formData.includeDiagram && (
+                                        <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl animate-in fade-in slide-in-from-left-2">
+                                           <button 
+                                             onClick={() => setFormData(prev => ({ ...prev, diagramLabelType: 'LABELED' }))}
+                                             className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all ${
+                                               formData.diagramLabelType === 'LABELED' ? 'bg-white text-purple-600 shadow-sm' : 'text-slate-400'
+                                             }`}
+                                           >
+                                             Labeled
+                                           </button>
+                                           <button 
+                                             onClick={() => setFormData(prev => ({ ...prev, diagramLabelType: 'BLANK' }))}
+                                             className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all ${
+                                               formData.diagramLabelType === 'BLANK' ? 'bg-white text-purple-600 shadow-sm' : 'text-slate-400'
+                                             }`}
+                                           >
+                                             Blank Labels
+                                           </button>
+                                        </div>
+                                      )}
+                                   </div>
+                                </div>
                               </div>
                               
                               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-10">
@@ -1070,7 +1125,7 @@ const App: React.FC = () => {
                             </button>
                           </div>
                         ) : (
-                          <button onClick={handleGenerate} disabled={(!isPreschool && totalQuestions === 0) || isAnalyzing} className={`w-full sm:w-auto flex items-center justify-center gap-4 px-12 sm:px-16 py-4 sm:py-5 rounded-[1.5rem] sm:rounded-[2.5rem] font-black text-lg sm:text-xl transition-all active:scale-95 ${(!isPreschool && totalQuestions === 0) || isAnalyzing ? 'bg-slate-200 text-slate-400 cursor-not-allowed opacity-50 shadow-none' : 'bg-yellow-400 text-yellow-900 shadow-xl hover:bg-yellow-500 animate-pulse hover:animate-none'}`}>
+                          <button onClick={handleGenerate} disabled={(!isPreschool && totalQuestions === 0 && !formData.includeDiagram) || isAnalyzing} className={`w-full sm:w-auto flex items-center justify-center gap-4 px-12 sm:px-16 py-4 sm:py-5 rounded-[1.5rem] sm:rounded-[2.5rem] font-black text-lg sm:text-xl transition-all active:scale-95 ${(!isPreschool && totalQuestions === 0 && !formData.includeDiagram) || isAnalyzing ? 'bg-slate-200 text-slate-400 cursor-not-allowed opacity-50 shadow-none' : 'bg-yellow-400 text-yellow-900 shadow-xl hover:bg-yellow-500 animate-pulse hover:animate-none'}`}>
                             <Sparkles className="w-6 h-6 sm:w-7 sm:h-7" /> {isPreschool ? 'Generate Coloring Page' : 'Build Final Sheet'}
                           </button>
                         )}
