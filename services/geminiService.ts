@@ -1,6 +1,6 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
-import { Worksheet, QuestionType } from "../types";
+import { Worksheet, QuestionType, ThemeType } from "../types";
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
@@ -17,6 +17,7 @@ export interface GenerationOptions {
   includeTracing?: boolean;
   includeDiagram?: boolean;
   diagramLabelType?: 'LABELED' | 'BLANK';
+  theme?: ThemeType;
 }
 
 export interface AnalysisResult {
@@ -143,19 +144,26 @@ export async function generateWorksheet(options: GenerationOptions): Promise<Wor
     pageTarget = 1, 
     includeTracing = false,
     includeDiagram = false,
-    diagramLabelType = 'LABELED'
+    diagramLabelType = 'LABELED',
+    theme = ThemeType.CLASSIC
   } = options;
 
   const isPreschool = gradeLevel.includes("Preschool");
+  const isInfographic = theme === ThemeType.CREATIVE && !isPreschool;
+  const shouldGenerateDiagram = (includeDiagram || isInfographic) && !isPreschool;
   let diagramImageBase64 = '';
 
-  // Generate Diagram if requested and not preschool
-  if (includeDiagram && !isPreschool) {
-    const labelInstruction = diagramLabelType === 'BLANK' 
-      ? "Include clear arrows or lines pointing to key components, but leave the label text areas completely blank or empty so students can write them in."
-      : "Include clear, professional text labels for all key components and parts.";
+  // Generate Diagram if requested or in infographic mode (not preschool)
+  if (shouldGenerateDiagram) {
+    const labelInstruction = diagramLabelType === 'BLANK' && !isInfographic
+      ? "The diagram must include clear arrows pointing to major components, but the label text areas MUST be left completely blank or replaced with empty boxes for students to manually fill in."
+      : "The diagram must include clear, professional academic text labels for every major component and process.";
     
-    const diagramPrompt = `A high-quality, academic technical diagram for ${topic} at a ${gradeLevel} level. Style: Scientific line art, black and white, clean and professional. ${labelInstruction} The background must be pure white. No shading, just bold, clean outlines.`;
+    const diagramPrompt = `Create a professional-grade, high-quality academic technical diagram for ${topic} at a ${gradeLevel} level. 
+    Style requirements: Strictly black and white scientific line art, clean and professional execution, suitable for a university textbook or formal examination. 
+    ${labelInstruction} 
+    The background must be pure white (#FFFFFF). No shading, no greyscale, no gradients—just clean, bold black outlines on a white canvas. 
+    Ensure the schematic is technically accurate and educational.`;
 
     try {
       const diagResponse = await ai.models.generateContent({
@@ -176,7 +184,6 @@ export async function generateWorksheet(options: GenerationOptions): Promise<Wor
   }
 
   if (isPreschool) {
-    // Specialized preschool logic: Generate a coloring page with NO text inside the image
     const imagePrompt = `A high-quality, simple, bold black and white line art coloring page for a preschool child. The subject is: ${topic}. Big, clear shapes, clean outlines only. IMPORTANT: The image must contain NO text, NO words, NO labels, and NO letters inside the drawing area. Only visual line art.`;
     
     try {
@@ -263,51 +270,57 @@ export async function generateWorksheet(options: GenerationOptions): Promise<Wor
   const isSeniorLevel = gradeLevel === 'High School' || gradeLevel === 'University / College' || gradeLevel === 'Professional / Adult';
   const isAdvancedLevel = gradeLevel === 'University / College' || gradeLevel === 'Professional / Adult';
 
+  const infographicInstruction = isInfographic ? `
+    MODE: INFOGRAPHIC GENERATION.
+    Instead of a traditional worksheet with questions, generate a "Visual Fact Sheet".
+    The "questions" array should contain key thematic sections:
+    - Each "question" should be a high-level educational section header.
+    - The "correctAnswer" should be the primary content/fact for that section (1-3 detailed sentences).
+    - The "explanation" should be a "Deep Dive" or "Fun Fact" related to the content.
+    - Provide exactly 6 sections to fill an infographic layout.
+  ` : '';
+
   const systemInstruction = `
-    You are an elite academic curriculum designer. Your goal is to produce university-entrance level assessment materials.
+    You are an elite academic curriculum designer.
     
     ACADEMIC RIGOR & TONE:
     - Grade Level: ${gradeLevel}
     - Difficulty Level: ${difficulty}
     - Language: ${language}
-    - Target Length: ${pageTarget} Page(s). Ensure the complexity and depth of the items scale to fill this volume.
-    - For Senior levels: The assessment must be academically rigorous, intellectually demanding, and factually flawless.
-    - Use high-level academic vocabulary and complex sentence structures in the questions.
-    - Focus on synthesis, evaluation, and critical analysis rather than simple recall.
+    - Target Length: ${pageTarget} Page(s).
+    - For Senior levels: The material must be academically rigorous, intellectually demanding, and factually flawless.
+
+    ${infographicInstruction}
 
     ${isAdvancedLevel ? `
     ADVANCED LEVEL SPECIAL INSTRUCTIONS (University/Professional):
-    - Abstract Reasoning: Design questions that require applying theoretical frameworks to novel, abstract, or highly technical scenarios.
-    - Complex Problem Solving: For technical topics, include multi-step problems that involve variables, derivation, or complex logical chains.
-    - Detailed Explanations: The "explanation" field for each question must be an academic-grade paragraph. It should explain the conceptual underpinnings, why the correct answer is logically necessary, and common theoretical pitfalls.
-    - Case Study Context: For professional levels, frame questions within realistic industry case studies or advanced research contexts.
+    - Abstract Reasoning: Design content that requires applying theoretical frameworks to novel, abstract, or highly technical scenarios.
+    - Detailed Explanations: Content must explain the conceptual underpinnings, why the fact is logically necessary, and common theoretical pitfalls.
     ` : ''}
 
-    STRICT SENIOR LEVEL RULES:
-    1. NO TRACING: Never generate tasks that involve tracing letters or words.
-    2. NO COPYING: Never ask the student to "copy the question" or "rewrite the sentence exactly".
-    3. TRANSFORMATION: If "Drill" types are requested for senior levels, transform them into "Formula Application" or "Data Interpretation" tasks.
-    4. NO JUVENILE CONTENT: Remove all mentions of "fun", "games", or "puzzles".
-    5. Factual Accuracy: All information must be strictly accurate.
+    ${!isInfographic ? `
+    STRICT SENIOR LEVEL RULES (ASSESSMENT MODE):
+    1. NO TRACING.
+    2. NO COPYING.
+    3. TRANSFORMATION: Transform drills into formula application.
+    4. ITEM DISTRIBUTION:
+${countInstruction}
+    ` : ''}
+
+    ${shouldGenerateDiagram && !isInfographic ? `
+    DIAGRAM INTEGRATION: 
+    A professional technical diagram (Exhibit 1) has been provided for this worksheet. 
+    You MUST include at least one question that specifically requires the student to interpret, analyze, or reference components of "Exhibit 1".
+    ` : ''}
 
     TITLE:
-    - Title should be: "${customTitle || 'Advanced Academic Assessment: ' + topic}"
+    - Title should be: "${customTitle || (isInfographic ? 'Educational Infographic: ' + topic : 'Advanced Academic Assessment: ' + topic)}"
 
-    ITEM DISTRIBUTION:
-${countInstruction}
-    
-    TYPES DEFINITION:
-       - MCQ: Complex distractors requiring logical elimination.
-       - TF: Subtle, nuanced statements that test edge cases of a concept.
-       - SHORT_ANSWER: Multi-sentence analytical justifications or proofs.
-       - VOCABULARY: Etymology, nuanced usage, or discipline-specific jargon in context.
-       - DRILLS: Only for Junior levels. For Senior, ignore tracing and make them short-form proofs or identifications.
-
-    COMPLEXITY MARKER:
-    Set "isChallenge: true" for items that require abstract reasoning or cross-disciplinary knowledge.
+    TYPES DEFINITION (If not Infographic):
+       - MCQ, TF, SHORT_ANSWER, VOCABULARY.
 
     OUTPUT VOLUME:
-    You are requested to target ${pageTarget} page(s) of content. If more than 1 page is requested, make the questions more comprehensive, add detailed preambles to sections, and ensure explanations are thorough.
+    Target ${pageTarget} page(s).
   `;
 
   parts.push({ text: systemInstruction });
@@ -319,7 +332,7 @@ ${countInstruction}
         mimeType: fileData.mimeType
       }
     });
-    parts.push({ text: "ANALYSIS TASK: Deconstruct the uploaded source material and integrate its most complex data/theory points into the assessment." });
+    parts.push({ text: "ANALYSIS TASK: Deconstruct the uploaded source material and integrate its most complex data/theory points into the content." });
   }
 
   if (rawText) {
@@ -328,7 +341,6 @@ ${countInstruction}
 
   parts.push({ text: `PRIMARY FOCUS AREA: ${topic}` });
 
-  // Use Pro for Senior Level or if file data is complex
   const modelToUse = isSeniorLevel ? 'gemini-3-pro-preview' : 'gemini-3-flash-preview';
 
   const response = await ai.models.generateContent({
@@ -372,7 +384,6 @@ ${countInstruction}
     if (customTitle && customTitle.trim() !== "") {
       data.title = customTitle;
     }
-    // Assign generated diagram if any
     const finalWorksheet = data as Worksheet;
     if (diagramImageBase64) {
       finalWorksheet.diagramImage = diagramImageBase64;

@@ -1,6 +1,5 @@
-
 import React, { useState } from 'react';
-import { Image as ImageIcon, Sparkles, Loader2, X } from 'lucide-react';
+import { Image as ImageIcon, Sparkles, Loader2, X, PenTool } from 'lucide-react';
 import { generateDoodles } from '../services/geminiService';
 
 export const MarkerHighlight: React.FC<{ children: React.ReactNode; className?: string; color?: string }> = ({ children, className, color = 'rgba(253, 224, 71, 0.4)' }) => (
@@ -99,12 +98,32 @@ export const HandwritingLabels = () => (
   </div>
 );
 
-export const DraggableLineRow: React.FC<{ text: string, isSmall?: boolean }> = ({ text, isSmall }) => (
-  <div className={`flex items-center gap-4 py-1.5 border-b border-slate-100/50 ${isSmall ? 'gap-2' : 'gap-6'}`}>
-    <div className={`font-handwriting-body text-slate-900 truncate font-bold ${isSmall ? 'text-lg w-12' : 'text-2xl w-24'}`}>{text}</div>
-    <div className="flex-1 h-6 dotted-line opacity-40"></div>
-  </div>
-);
+export const DraggableLineRow: React.FC<{ 
+  text: string; 
+  isSmall?: boolean; 
+  showTraceButton?: boolean;
+}> = ({ text, isSmall, showTraceButton }) => {
+  const [isTracing, setIsTracing] = useState(false);
+
+  return (
+    <div className={`flex items-center gap-4 py-1.5 border-b border-slate-100/50 ${isSmall ? 'gap-2' : 'gap-6'}`}>
+      <div className={`font-handwriting-body text-slate-900 truncate font-bold transition-all duration-300 ${isSmall ? 'text-lg w-12' : 'text-2xl w-24'} ${isTracing ? 'scale-105 text-yellow-600' : ''}`}>
+        {text}
+      </div>
+      <div className={`flex-1 h-6 dotted-line transition-all duration-500 ${isTracing ? 'animate-trace-pulse opacity-100' : 'opacity-40'}`}></div>
+      {showTraceButton && (
+        <button 
+          onClick={() => setIsTracing(!isTracing)}
+          className={`no-print p-1.5 rounded-lg transition-all group flex items-center justify-center ${isTracing ? 'bg-yellow-400 text-yellow-900 shadow-md ring-2 ring-yellow-200' : 'bg-slate-50 text-slate-400 hover:bg-slate-200 hover:text-slate-600'}`}
+          title={isTracing ? "Stop Tracing Practice" : "Start Tracing Practice"}
+        >
+          <PenTool className={`w-3.5 h-3.5 ${isTracing ? 'animate-bounce' : ''}`} />
+          <span className="sr-only">Trace This</span>
+        </button>
+      )}
+    </div>
+  );
+};
 
 export const SymbolDrillRow: React.FC<{ symbols: string }> = ({ symbols }) => (
   <div className="flex flex-col gap-2 py-4">

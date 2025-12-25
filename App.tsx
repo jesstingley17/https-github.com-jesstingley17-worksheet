@@ -204,17 +204,13 @@ const App: React.FC = () => {
     formData.educationalLevel === 'University / College' || 
     formData.educationalLevel === 'Professional / Adult';
 
-  // Force Creative/Doodles for Preschool, Classic for Senior
+  // Allow Creative/Infographic for all levels now
   useEffect(() => {
-    if (isSeniorLevel && theme === ThemeType.CREATIVE) {
-      setTheme(ThemeType.CLASSIC);
-      setShowDoodles(false);
-    }
     if (isPreschool) {
       setTheme(ThemeType.CREATIVE);
       setShowDoodles(true);
     }
-  }, [formData.educationalLevel, isSeniorLevel, isPreschool, theme]);
+  }, [formData.educationalLevel, isPreschool]);
 
   const totalQuestions = (Object.values(formData.questionCounts) as number[]).reduce((a: number, b: number) => a + b, 0);
 
@@ -419,7 +415,8 @@ const App: React.FC = () => {
   };
 
   const handleGenerate = async () => {
-    if (!isPreschool && totalQuestions === 0 && !formData.includeDiagram) {
+    const isInfographic = theme === ThemeType.CREATIVE && !isPreschool;
+    if (!isPreschool && !isInfographic && totalQuestions === 0 && !formData.includeDiagram) {
       alert("Please select at least one question type count or include a diagram.");
       return;
     }
@@ -443,6 +440,7 @@ const App: React.FC = () => {
         diagramLabelType: formData.diagramLabelType,
         fileData: fileData || undefined,
         rawText: formData.rawText || undefined,
+        theme: theme,
       });
       const finalResult = { ...result, id: Date.now().toString(), savedAt: Date.now(), educationalLevel: formData.educationalLevel };
       setWorksheet(finalResult);
@@ -576,44 +574,33 @@ const App: React.FC = () => {
           {!isPreschool && (
             <div>
               <h3 className="text-xs uppercase tracking-widest text-slate-400 font-bold mb-4 flex items-center gap-2">
-                <Settings className="w-3 h-3" /> Layout Style
+                <Settings className="w-3 h-3" /> Visual Theme
               </h3>
               <div className="space-y-4">
                 <div className="flex bg-slate-100 p-1 rounded-xl">
-                  <button onClick={() => setTheme(ThemeType.CLASSIC)} className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-bold transition-all ${theme === ThemeType.CLASSIC ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500'}`}>
+                  <button onClick={() => setTheme(ThemeType.CLASSIC)} className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-bold transition-all ${theme === ThemeType.CLASSIC ? 'bg-white shadow-sm text-blue-600' : 'text-slate-50'}`}>
                     <Layout className="w-4 h-4" /> Classic
                   </button>
                   <button 
-                    disabled={isSeniorLevel}
                     onClick={() => setTheme(ThemeType.CREATIVE)} 
-                    className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-bold transition-all ${theme === ThemeType.CREATIVE ? 'bg-white shadow-sm text-yellow-600' : 'text-slate-400 disabled:opacity-40 disabled:cursor-not-allowed'}`}
-                    title={isSeniorLevel ? "Creative mode is disabled for senior levels" : ""}
+                    className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-bold transition-all ${theme === ThemeType.CREATIVE ? 'bg-white shadow-sm text-yellow-600' : 'text-slate-400'}`}
                   >
-                    {isSeniorLevel ? <Lock className="w-3 h-3" /> : <Sparkles className="w-4 h-4" />} Creative
+                    <Sparkles className="w-4 h-4" /> Infographic
                   </button>
                 </div>
                 
                 <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
                   <div className="flex flex-col">
-                    <span className={`text-xs font-bold ${isSeniorLevel ? 'text-slate-400' : 'text-slate-700'}`}>Visual Doodles</span>
-                    <span className="text-[9px] text-slate-400 uppercase font-black">Professional Auto-Enforce</span>
+                    <span className="text-xs font-bold text-slate-700">Visual Doodles</span>
+                    <span className="text-[9px] text-slate-400 uppercase font-black">Content-Aware Art</span>
                   </div>
                   <button 
-                    disabled={isSeniorLevel}
                     onClick={() => setShowDoodles(!showDoodles)}
-                    className={`transition-colors ${isSeniorLevel ? 'text-slate-200 cursor-not-allowed' : 'text-slate-400 hover:text-blue-500'}`}
+                    className="transition-colors text-slate-400 hover:text-blue-500"
                   >
-                    {showDoodles && !isSeniorLevel ? <ToggleRight className="w-8 h-8 text-blue-500" /> : <ToggleLeft className="w-8 h-8" />}
+                    {showDoodles ? <ToggleRight className="w-8 h-8 text-blue-500" /> : <ToggleLeft className="w-8 h-8" />}
                   </button>
                 </div>
-                {isSeniorLevel && (
-                  <div className="p-2 bg-blue-50/50 rounded-lg border border-blue-100/50">
-                    <p className="text-[9px] text-blue-600 font-bold leading-tight flex items-start gap-1.5">
-                      <Info className="w-3 h-3 flex-shrink-0" />
-                      Professional themes are mandatory for high school/university standards to ensure document integrity.
-                    </p>
-                  </div>
-                )}
               </div>
             </div>
           )}
@@ -629,7 +616,7 @@ const App: React.FC = () => {
               <button onClick={() => worksheet && setMode(AppMode.WORKSHEET)} disabled={!worksheet} className={`w-full flex items-center gap-3 p-3 rounded-xl font-medium transition-all ${mode === AppMode.WORKSHEET ? 'bg-slate-100 text-slate-900' : 'text-slate-500 hover:bg-slate-50 disabled:opacity-30'}`}>
                 <FileText className="w-5 h-5" /> Active Sheet
               </button>
-              <button onClick={() => worksheet && setMode(AppMode.QUIZ)} disabled={!worksheet || isPreschool} className={`w-full flex items-center gap-3 p-3 rounded-xl font-medium transition-all ${mode === AppMode.QUIZ ? 'bg-slate-100 text-slate-900' : 'text-slate-500 hover:bg-slate-50 disabled:opacity-30'}`}>
+              <button onClick={() => worksheet && setMode(AppMode.QUIZ)} disabled={!worksheet || isPreschool || theme === ThemeType.CREATIVE} className={`w-full flex items-center gap-3 p-3 rounded-xl font-medium transition-all ${mode === AppMode.QUIZ ? 'bg-slate-100 text-slate-900' : 'text-slate-500 hover:bg-slate-50 disabled:opacity-30'}`}>
                 <PlayCircle className="w-5 h-5" /> Digital Practice
               </button>
             </div>
@@ -693,7 +680,7 @@ const App: React.FC = () => {
                     <h2 className="font-handwriting-header text-5xl sm:text-7xl text-slate-800 mb-4">
                       Homework <MarkerHighlight>Hero</MarkerHighlight>
                     </h2>
-                    <p className="text-slate-500 text-base sm:text-lg font-medium px-4">Step-by-step sequential worksheet building.</p>
+                    <p className="text-slate-500 text-base sm:text-lg font-medium px-4">Step-by-step sequential material building.</p>
                     
                     <div className="flex items-center justify-center gap-1 sm:gap-3 mt-10 px-2">
                        {[
@@ -837,8 +824,8 @@ const App: React.FC = () => {
                           <div className="flex items-center gap-4 mb-6">
                             <div className="p-3 bg-yellow-50 rounded-2xl"><Sparkles className="text-yellow-500" /></div>
                             <div>
-                              <h3 className="text-2xl sm:text-3xl font-black text-slate-800">3. Creative Direction</h3>
-                              <p className="text-sm sm:text-base text-slate-400 font-medium">Define the theme and instructional goal for your {formData.educationalLevel} worksheet.</p>
+                              <h3 className="text-2xl sm:text-3xl font-black text-slate-800">3. Contextual Direction</h3>
+                              <p className="text-sm sm:text-base text-slate-400 font-medium">Define the instructional goal for your {formData.educationalLevel} content.</p>
                             </div>
                           </div>
                           <div className="space-y-6">
@@ -924,24 +911,29 @@ const App: React.FC = () => {
                                 <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-8 gap-6">
                                   <div className="space-y-1">
                                     <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 mb-2">
-                                      <Zap className="w-4 h-4 text-yellow-500" /> Distribution Presets
+                                      {theme === ThemeType.CREATIVE ? <Sparkles className="w-4 h-4 text-yellow-500" /> : <Zap className="w-4 h-4 text-yellow-500" />}
+                                      {theme === ThemeType.CREATIVE ? 'Infographic Layout' : 'Distribution Presets'}
                                     </h4>
-                                    <div className="flex flex-wrap gap-2">
-                                      {Object.keys(presets).map(preset => (
-                                        <button 
-                                          key={preset} 
-                                          onClick={() => applyPreset(preset)} 
-                                          className={`px-4 py-2 sm:px-6 sm:py-3 border-2 rounded-xl sm:rounded-2xl font-bold text-xs sm:text-sm transition-all active:scale-95 shadow-sm flex items-center gap-2 ${
-                                            activePreset === preset 
-                                            ? 'bg-yellow-400 border-yellow-400 text-yellow-900 ring-4 ring-yellow-100' 
-                                            : 'bg-white border-slate-100 text-slate-600 hover:border-yellow-400 hover:text-yellow-600'
-                                          }`}
-                                        >
-                                          {activePreset === preset && <CheckCircle2 className="w-4 h-4" />}
-                                          {preset}
-                                        </button>
-                                      ))}
-                                    </div>
+                                    {theme === ThemeType.CREATIVE ? (
+                                      <p className="text-sm font-medium text-slate-600">Visual infographic layout will be generated automatically. Standard question counts are ignored.</p>
+                                    ) : (
+                                      <div className="flex flex-wrap gap-2">
+                                        {Object.keys(presets).map(preset => (
+                                          <button 
+                                            key={preset} 
+                                            onClick={() => applyPreset(preset)} 
+                                            className={`px-4 py-2 sm:px-6 sm:py-3 border-2 rounded-xl sm:rounded-2xl font-bold text-xs sm:text-sm transition-all active:scale-95 shadow-sm flex items-center gap-2 ${
+                                              activePreset === preset 
+                                              ? 'bg-yellow-400 border-yellow-400 text-yellow-900 ring-4 ring-yellow-100' 
+                                              : 'bg-white border-slate-100 text-slate-600 hover:border-yellow-400 hover:text-yellow-600'
+                                            }`}
+                                          >
+                                            {activePreset === preset && <CheckCircle2 className="w-4 h-4" />}
+                                            {preset}
+                                          </button>
+                                        ))}
+                                      </div>
+                                    )}
                                   </div>
 
                                   <div className="w-full lg:w-auto p-4 bg-white rounded-2xl border border-slate-100 shadow-sm">
@@ -980,16 +972,17 @@ const App: React.FC = () => {
                                       <button 
                                         onClick={() => setFormData(prev => ({ ...prev, includeDiagram: !prev.includeDiagram }))}
                                         className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-xs uppercase tracking-widest transition-all ${
-                                          formData.includeDiagram 
+                                          formData.includeDiagram || theme === ThemeType.CREATIVE
                                           ? 'bg-purple-600 text-white shadow-lg' 
                                           : 'bg-slate-50 text-slate-400 hover:bg-slate-100'
                                         }`}
+                                        disabled={theme === ThemeType.CREATIVE}
                                       >
                                         <ImageIcon className="w-4 h-4" />
-                                        {formData.includeDiagram ? 'Diagram Included' : 'Add Diagram?'}
+                                        {theme === ThemeType.CREATIVE ? 'Diagram Forced' : (formData.includeDiagram ? 'Diagram Included' : 'Add Diagram?')}
                                       </button>
                                       
-                                      {formData.includeDiagram && (
+                                      {theme !== ThemeType.CREATIVE && formData.includeDiagram && (
                                         <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl animate-in fade-in slide-in-from-left-2">
                                            <button 
                                              onClick={() => setFormData(prev => ({ ...prev, diagramLabelType: 'LABELED' }))}
@@ -1036,60 +1029,71 @@ const App: React.FC = () => {
                                   </div>
                                 </div>
 
-                                <div className="lg:col-span-4 bg-slate-50 rounded-[1.5rem] sm:rounded-[2.5rem] p-6 sm:p-8 border border-slate-100">
+                                <div className={`lg:col-span-4 bg-slate-50 rounded-[1.5rem] sm:rounded-[2.5rem] p-6 sm:p-8 border border-slate-100`}>
                                   <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-6 flex items-center justify-between">
                                     Item Distribution
-                                    <span className={`px-2 py-0.5 rounded text-[10px] shadow-sm transition-colors ${totalQuestions === 0 ? 'bg-red-400 text-white' : 'bg-yellow-400 text-yellow-900'}`}>
-                                      Total: {totalQuestions}
+                                    <span className={`px-2 py-0.5 rounded text-[10px] shadow-sm transition-colors ${totalQuestions === 0 && theme !== ThemeType.CREATIVE ? 'bg-red-400 text-white' : 'bg-yellow-400 text-yellow-900'}`}>
+                                      {theme === ThemeType.CREATIVE ? 'Auto (Infographic)' : `Total: ${totalQuestions}`}
                                     </span>
                                   </h4>
                                   <div className="space-y-3">
-                                    {Object.entries(formData.questionCounts).map(([type, count]) => (
-                                      <div key={type} className="flex items-center justify-between bg-white p-2 px-4 rounded-xl sm:rounded-2xl shadow-sm border border-slate-50 hover:border-yellow-200 transition-colors group">
-                                        <div className="flex flex-col">
-                                          <span className="text-[8px] sm:text-[10px] font-black text-slate-300 uppercase leading-none mb-1 group-hover:text-yellow-600">{type.replace('_', ' ')}</span>
-                                          <span className="text-[10px] sm:text-xs font-bold text-slate-600 truncate max-w-[80px] sm:max-w-[100px]">{type.split('_').map(w => w[0] + w.slice(1).toLowerCase()).join(' ')}</span>
+                                    {Object.entries(formData.questionCounts).map(([type, count]) => {
+                                      const isDrill = type === QuestionType.CHARACTER_DRILL || type === QuestionType.SYMBOL_DRILL || type === QuestionType.SENTENCE_DRILL;
+                                      const isDisabledInInfographic = theme === ThemeType.CREATIVE && isDrill;
+                                      
+                                      return (
+                                        <div key={type} className={`flex items-center justify-between bg-white p-2 px-4 rounded-xl sm:rounded-2xl shadow-sm border border-slate-50 transition-all group ${isDisabledInInfographic ? 'opacity-30 cursor-not-allowed grayscale pointer-events-none' : 'hover:border-yellow-200'}`}>
+                                          <div className="flex flex-col">
+                                            <span className="text-[8px] sm:text-[10px] font-black text-slate-300 uppercase leading-none mb-1 group-hover:text-yellow-600">{type.replace('_', ' ')}</span>
+                                            <span className="text-[10px] sm:text-xs font-bold text-slate-600 truncate max-w-[80px] sm:max-w-[100px]">{type.split('_').map(w => w[0] + w.slice(1).toLowerCase()).join(' ')}</span>
+                                          </div>
+                                          <div className={`flex items-center gap-2 sm:gap-3 ${isDisabledInInfographic ? 'invisible' : ''}`}>
+                                            <button onClick={() => updateCount(type as QuestionType, -1)} className="p-1 hover:bg-slate-100 rounded-lg text-slate-400 transition-colors"><Minus className="w-3 h-3 sm:w-4 sm:h-4" /></button>
+                                            <span className="w-3 sm:w-4 text-center font-black text-sm sm:text-base text-slate-800">{count}</span>
+                                            <button onClick={() => updateCount(type as QuestionType, 1)} className="p-1 hover:bg-slate-100 rounded-lg text-slate-400 transition-colors"><Plus className="w-3 h-3 sm:w-4 sm:h-4" /></button>
+                                          </div>
                                         </div>
-                                        <div className="flex items-center gap-2 sm:gap-3">
-                                          <button onClick={() => updateCount(type as QuestionType, -1)} className="p-1 hover:bg-slate-100 rounded-lg text-slate-400 transition-colors"><Minus className="w-3 h-3 sm:w-4 sm:h-4" /></button>
-                                          <span className="w-3 sm:w-4 text-center font-black text-sm sm:text-base text-slate-800">{count}</span>
-                                          <button onClick={() => updateCount(type as QuestionType, 1)} className="p-1 hover:bg-slate-100 rounded-lg text-slate-400 transition-colors"><Plus className="w-3 h-3 sm:w-4 sm:h-4" /></button>
-                                        </div>
-                                      </div>
-                                    ))}
+                                      );
+                                    })}
                                   </div>
                                 </div>
 
                                 <div className="lg:col-span-4 space-y-4">
                                   <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest ml-2 flex items-center gap-2">
-                                    <Info className="w-4 h-4 text-blue-500" /> Item Vocabulary
+                                    <Info className="w-4 h-4 text-blue-500" /> {theme === ThemeType.CREATIVE ? 'Infographic Content' : 'Item Vocabulary'}
                                   </h4>
                                   <div className="bg-white rounded-[1.5rem] sm:rounded-[2rem] border border-slate-100 overflow-hidden shadow-sm overflow-x-auto">
-                                    <table className="w-full text-left min-w-[200px]">
-                                      <thead>
-                                        <tr className="bg-slate-50 border-b border-slate-100">
-                                          <th className="px-3 sm:px-4 py-2 sm:py-3 text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-slate-400">Abbr.</th>
-                                          <th className="px-3 sm:px-4 py-2 sm:py-3 text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-slate-400">Outcome</th>
-                                        </tr>
-                                      </thead>
-                                      <tbody className="divide-y divide-slate-50">
-                                        {glossaryItems.map((item) => (
-                                          <tr key={item.id} className="hover:bg-slate-50 transition-colors group">
-                                            <td className="px-3 sm:px-4 py-2 sm:py-3">
-                                              <div className="flex items-center gap-2">
-                                                <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-slate-100 text-slate-400 flex items-center justify-center group-hover:bg-yellow-400 group-hover:text-white transition-colors shadow-sm">
-                                                  {item.icon}
-                                                </div>
-                                                <span className="text-[9px] sm:text-[11px] font-black text-slate-700">{item.label}</span>
-                                              </div>
-                                            </td>
-                                            <td className="px-3 sm:px-4 py-2 sm:py-3 text-[8px] sm:text-[10px] font-medium text-slate-400 leading-tight">
-                                              {item.desc}
-                                            </td>
+                                    {theme === ThemeType.CREATIVE ? (
+                                      <div className="p-6 text-sm text-slate-500 leading-relaxed italic">
+                                        In infographic mode, Homework Hero focuses on summarizing core principles, data visualization, and key educational pillars. Drill tasks are disabled as they are incompatible with static visual summaries.
+                                      </div>
+                                    ) : (
+                                      <table className="w-full text-left min-w-[200px]">
+                                        <thead>
+                                          <tr className="bg-slate-50 border-b border-slate-100">
+                                            <th className="px-3 sm:px-4 py-2 sm:py-3 text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-slate-400">Abbr.</th>
+                                            <th className="px-3 sm:px-4 py-2 sm:py-3 text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-slate-400">Outcome</th>
                                           </tr>
-                                        ))}
-                                      </tbody>
-                                    </table>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-50">
+                                          {glossaryItems.map((item) => (
+                                            <tr key={item.id} className="hover:bg-slate-50 transition-colors group">
+                                              <td className="px-3 sm:px-4 py-2 sm:py-3">
+                                                <div className="flex items-center gap-2">
+                                                  <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-slate-100 text-slate-400 flex items-center justify-center group-hover:bg-yellow-400 group-hover:text-white transition-colors shadow-sm">
+                                                    {item.icon}
+                                                  </div>
+                                                  <span className="text-[9px] sm:text-[11px] font-black text-slate-700">{item.label}</span>
+                                                </div>
+                                              </td>
+                                              <td className="px-3 sm:px-4 py-2 sm:py-3 text-[8px] sm:text-[10px] font-medium text-slate-400 leading-tight">
+                                                {item.desc}
+                                              </td>
+                                            </tr>
+                                          ))}
+                                        </tbody>
+                                      </table>
+                                    )}
                                   </div>
                                 </div>
                               </div>
@@ -1125,8 +1129,8 @@ const App: React.FC = () => {
                             </button>
                           </div>
                         ) : (
-                          <button onClick={handleGenerate} disabled={(!isPreschool && totalQuestions === 0 && !formData.includeDiagram) || isAnalyzing} className={`w-full sm:w-auto flex items-center justify-center gap-4 px-12 sm:px-16 py-4 sm:py-5 rounded-[1.5rem] sm:rounded-[2.5rem] font-black text-lg sm:text-xl transition-all active:scale-95 ${(!isPreschool && totalQuestions === 0 && !formData.includeDiagram) || isAnalyzing ? 'bg-slate-200 text-slate-400 cursor-not-allowed opacity-50 shadow-none' : 'bg-yellow-400 text-yellow-900 shadow-xl hover:bg-yellow-500 animate-pulse hover:animate-none'}`}>
-                            <Sparkles className="w-6 h-6 sm:w-7 sm:h-7" /> {isPreschool ? 'Generate Coloring Page' : 'Build Final Sheet'}
+                          <button onClick={handleGenerate} disabled={(!isPreschool && theme !== ThemeType.CREATIVE && totalQuestions === 0 && !formData.includeDiagram) || isAnalyzing} className={`w-full sm:w-auto flex items-center justify-center gap-4 px-12 sm:px-16 py-4 sm:py-5 rounded-[1.5rem] sm:rounded-[2.5rem] font-black text-lg sm:text-xl transition-all active:scale-95 ${(!isPreschool && theme !== ThemeType.CREATIVE && totalQuestions === 0 && !formData.includeDiagram) || isAnalyzing ? 'bg-slate-200 text-slate-400 cursor-not-allowed opacity-50 shadow-none' : 'bg-yellow-400 text-yellow-900 shadow-xl hover:bg-yellow-500 animate-pulse hover:animate-none'}`}>
+                            <Sparkles className="w-6 h-6 sm:w-7 sm:h-7" /> {isPreschool ? 'Generate Coloring Page' : (theme === ThemeType.CREATIVE ? 'Build Infographic' : 'Build Final Sheet')}
                           </button>
                         )}
                         {lastSavedTime && !isAnalyzing && (
@@ -1167,11 +1171,11 @@ const App: React.FC = () => {
                                <Sigma className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span>Math Mode</span>
                              </button>
                            )}
-                           {!isPreschool && (
+                           {!isPreschool && theme !== ThemeType.CREATIVE && (
                              <button onClick={() => setShowTeacherKey(!showTeacherKey)} className={`flex items-center justify-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg sm:rounded-xl text-[10px] sm:text-sm font-bold transition-all ${showTeacherKey ? 'bg-red-100 text-red-700 shadow-inner' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}><Key className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span>{showTeacherKey ? "Keys On" : "Keys Off"}</span></button>
                            )}
                            <button onClick={handleSaveCurrent} className="flex items-center justify-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 bg-yellow-50 text-yellow-700 rounded-lg sm:rounded-xl text-[10px] sm:text-sm font-bold hover:bg-yellow-100 transition-colors"><Save className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span>Save</span></button>
-                           {!isPreschool && (
+                           {!isPreschool && theme !== ThemeType.CREATIVE && (
                              <button onClick={() => setMode(AppMode.QUIZ)} className="flex items-center justify-center gap-1.5 px-4 py-2 bg-slate-900 text-white rounded-lg sm:rounded-xl text-[10px] sm:text-sm font-bold hover:bg-slate-800 transition-colors shadow-lg active:scale-95"><PlayCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> <span>Quiz</span></button>
                            )}
                         </div>
