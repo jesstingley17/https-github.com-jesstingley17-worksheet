@@ -191,6 +191,8 @@ export const WorksheetView: React.FC<WorksheetViewProps> = ({ worksheet: initial
     </div>
   );
 
+  const cutBorderStyle = "border-[0.5px] border-slate-300 border-dashed ring-[0.5px] ring-slate-100";
+
   if (isPreschool) {
     return (
       <div className="relative">
@@ -208,7 +210,7 @@ export const WorksheetView: React.FC<WorksheetViewProps> = ({ worksheet: initial
 
         <div 
           id="worksheet-content" 
-          className="max-w-[210mm] mx-auto bg-white p-[10mm] shadow-lg min-h-[297mm] relative transition-all duration-500 overflow-hidden font-handwriting-body border border-slate-200 flex flex-col"
+          className={`max-w-[210mm] mx-auto bg-white p-[10mm] shadow-lg min-h-[297mm] relative transition-all duration-500 overflow-hidden font-handwriting-body flex flex-col ${cutBorderStyle}`}
         >
           <DoodleCorner position="tl" />
           <DoodleCorner position="tr" />
@@ -308,7 +310,7 @@ export const WorksheetView: React.FC<WorksheetViewProps> = ({ worksheet: initial
       
       <div 
         id="worksheet-content" 
-        className={`max-w-[210mm] mx-auto bg-white ${isClassicProfessional ? 'p-[15mm]' : 'p-[12mm]'} shadow-lg min-h-[297mm] relative transition-all duration-500 ${isCreative ? 'font-handwriting-body' : 'font-sans border border-slate-200'}`}
+        className={`max-w-[210mm] mx-auto bg-white ${isClassicProfessional ? 'p-[15mm]' : 'p-[12mm]'} shadow-lg min-h-[297mm] relative transition-all duration-500 ${isCreative ? 'font-handwriting-body' : 'font-sans'} ${cutBorderStyle}`}
       >
         {placedDoodles.map(doodle => (
           <div key={doodle.id} className="absolute group z-50 cursor-move" style={{ left: `${doodle.x}%`, top: `${doodle.y}%`, width: '120px' }}>
