@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { AppMode, Worksheet, ThemeType, QuestionType } from './types';
-import { generateWorksheet, generateTopicScopeSuggestion, analyzeSourceMaterial } from './services/geminiService';
+import { generateWorksheet, generateTopicScopeSuggestion, analyzeSourceMaterial, refineSourceText } from './services/geminiService';
 import { WorksheetView } from './components/WorksheetView';
 import { QuizView } from './components/QuizView';
 import { MarkerHighlight } from './components/HandwritingElements';
@@ -60,7 +60,9 @@ import {
   ImageIcon,
   Clock,
   ChevronRight,
-  PlusCircle
+  PlusCircle,
+  RefreshCw,
+  MagicWand
 } from 'lucide-react';
 
 const WorksheetSkeleton: React.FC<{ theme: ThemeType }> = ({ theme }) => {
@@ -110,6 +112,7 @@ const App: React.FC = () => {
   const [savedWorksheets, setSavedWorksheets] = useState<Worksheet[]>([]);
   const [loading, setLoading] = useState(false);
   const [isGeneratingScope, setIsGeneratingScope] = useState(false);
+  const [isRefining, setIsRefining] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [lastSavedTime, setLastSavedTime] = useState<number | null>(null);
   const [showTeacherKey, setShowTeacherKey] = useState(false);
@@ -285,6 +288,35 @@ const App: React.FC = () => {
     }
   };
 
+  const handleRefineText = async () => {
+    if (!formData.rawText.trim()) return;
+    setIsRefining(true);
+    try {
+      const refined = await refineSourceText(formData.rawText);
+      setFormData(prev => ({ ...prev, rawText: refined }));
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsRefining(false);
+    }
+  };
+
+  const handleSuggestScope = async () => {
+    if (!formData.customTitle.trim()) {
+      alert("Please provide a title first.");
+      return;
+    }
+    setIsGeneratingScope(true);
+    try {
+      const scope = await generateTopicScopeSuggestion(formData.customTitle, formData.educationalLevel);
+      setFormData(prev => ({ ...prev, topic: scope }));
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsGeneratingScope(false);
+    }
+  };
+
   const handleGenerate = async () => {
     const isInfographic = theme === ThemeType.CREATIVE && !isPreschool;
     if (!isPreschool && !isInfographic && totalQuestions === 0 && !formData.includeDiagram) {
@@ -311,6 +343,7 @@ const App: React.FC = () => {
         fileData: fileData || undefined,
         rawText: formData.rawText || undefined,
         theme: theme,
+        isMathMode: isMathMode
       });
       setWorksheet({ ...result, id: Date.now().toString(), savedAt: Date.now(), educationalLevel: formData.educationalLevel });
       setMode(AppMode.WORKSHEET);
@@ -369,7 +402,7 @@ const App: React.FC = () => {
         <div className="flex-1 overflow-y-auto p-6 space-y-8">
           <div><h3 className="text-xs uppercase tracking-widest text-slate-400 font-bold mb-4 flex items-center gap-2"><Award className="w-3 h-3" /> Master Level</h3><select className="w-full p-3 rounded-xl bg-slate-100 border-2 border-transparent focus:border-blue-400 focus:bg-white outline-none font-bold text-slate-700 text-sm transition-all" value={formData.educationalLevel} onChange={(e) => setFormData({...formData, educationalLevel: e.target.value})}>{educationalLevels.map(lvl => <option key={lvl} value={lvl}>{lvl}</option>)}</select></div>
           <div><h3 className="text-xs uppercase tracking-widest text-slate-400 font-bold mb-4 flex items-center gap-2"><Layers className="w-3 h-3" /> Tools</h3><div className="space-y-2"><button onClick={() => { setMode(AppMode.GENERATOR); setCurrentStep(1); }} className={`w-full flex items-center gap-3 p-3 rounded-xl font-medium transition-all ${mode === AppMode.GENERATOR ? 'bg-slate-100 text-slate-900' : 'text-slate-500 hover:bg-slate-50'}`}><Plus className="w-5 h-5 text-yellow-500" /> New Session</button><button onClick={() => worksheet && setMode(AppMode.WORKSHEET)} disabled={!worksheet} className={`w-full flex items-center gap-3 p-3 rounded-xl font-medium transition-all ${mode === AppMode.WORKSHEET ? 'bg-slate-100 text-slate-900' : 'text-slate-500 hover:bg-slate-50 disabled:opacity-30'}`}><FileText className="w-5 h-5" /> Active Sheet</button></div></div>
-          <div><h3 className="text-xs uppercase tracking-widest text-slate-400 font-bold mb-4 flex items-center gap-2"><History className="w-3 h-3" /> Archive</h3><div className="space-y-2">{savedWorksheets.map((saved) => (<div key={saved.id} onClick={() => handleLoadSaved(saved)} className="group relative flex flex-col p-3 rounded-xl bg-slate-50 border border-slate-100 hover:bg-white hover:border-yellow-200 hover:shadow-sm cursor-pointer transition-all"><span className="font-bold text-slate-700 text-xs truncate pr-6">{saved.title}</span><button onClick={(e) => handleDeleteSaved(saved.id!, e)} className="absolute right-2 top-2 p-1 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"><Trash2 className="w-3 h-3" /></button></div>))}</div></div>
+          <div><h3 className="text-xs uppercase tracking-widest text-slate-400 font-bold mb-4 flex items-center gap-2"><History className="w-3 h-3" /> Archive</h3><div className="space-y-2 max-h-72 overflow-y-auto pr-2">{savedWorksheets.map((saved) => (<div key={saved.id} onClick={() => handleLoadSaved(saved)} className="group relative flex flex-col p-3 rounded-xl bg-slate-50 border border-slate-100 hover:bg-white hover:border-yellow-200 hover:shadow-sm cursor-pointer transition-all"><span className="font-bold text-slate-700 text-xs truncate pr-6">{saved.title}</span><button onClick={(e) => handleDeleteSaved(saved.id!, e)} className="absolute right-2 top-2 p-1 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"><Trash2 className="w-3 h-3" /></button></div>))}</div></div>
           {worksheet && (<div className="pt-8 border-t border-slate-100 space-y-3"><button onClick={handleSaveCurrent} className="w-full flex items-center justify-center gap-3 p-4 bg-yellow-400 text-yellow-900 rounded-2xl font-black hover:bg-yellow-500 transition-all shadow-lg active:scale-95"><Save className="w-5 h-5" /> Save To Library</button></div>)}
         </div>
       </aside>
@@ -392,8 +425,52 @@ const App: React.FC = () => {
                           {fileData && (<div className="p-4 bg-green-50 text-green-700 rounded-2xl flex items-center gap-2 font-bold animate-in zoom-in"><CheckCircle2 className="w-5 h-5" /> {fileData.name} loaded.</div>)}
                         </div>
                       )}
-                      {currentStep === 2 && (<div className="animate-in slide-in-from-right duration-500 h-full flex flex-col gap-6"><h3 className="text-3xl font-black text-slate-800">2. Text Integration</h3><textarea className="flex-1 w-full p-8 rounded-[2rem] bg-slate-50 border-2 border-slate-100 focus:border-yellow-400 focus:bg-white outline-none font-medium text-xl resize-none" placeholder="Paste textbook text or additional context here..." value={formData.rawText} onChange={(e) => setFormData({...formData, rawText: e.target.value})} /></div>)}
-                      {currentStep === 3 && (<div className="animate-in slide-in-from-right duration-500 h-full flex flex-col gap-8"><h3 className="text-3xl font-black text-slate-800">3. Define Scope</h3><div className="space-y-6"><div><label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2 ml-2">Display Title</label><input className="w-full p-6 rounded-2xl bg-slate-50 border-2 border-slate-100 focus:border-yellow-400 outline-none font-bold text-xl" value={formData.customTitle} onChange={(e) => setFormData({...formData, customTitle: e.target.value})} placeholder="e.g. Calculus: Derivative Rules" /></div><div><label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2 ml-2">Topic Focus</label><textarea className="w-full p-6 h-40 rounded-2xl bg-slate-50 border-2 border-slate-100 focus:border-yellow-400 outline-none font-medium text-xl" value={formData.topic} onChange={(e) => setFormData({...formData, topic: e.target.value})} placeholder="What should the sheet focus on?" /></div></div></div>)}
+                      {currentStep === 2 && (
+                        <div className="animate-in slide-in-from-right duration-500 h-full flex flex-col gap-6 relative">
+                          <div className="flex justify-between items-center">
+                            <h3 className="text-3xl font-black text-slate-800">2. Text Integration</h3>
+                            <button 
+                              onClick={handleRefineText}
+                              disabled={isRefining || !formData.rawText.trim()}
+                              className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-xs uppercase tracking-widest transition-all ${isRefining ? 'bg-slate-100 text-slate-400' : 'bg-blue-50 text-blue-600 hover:bg-blue-100 active:scale-95'}`}
+                            >
+                              {isRefining ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                              Magic Refine
+                            </button>
+                          </div>
+                          <textarea 
+                            className="flex-1 w-full p-8 rounded-[2rem] bg-slate-50 border-2 border-slate-100 focus:border-yellow-400 focus:bg-white outline-none font-medium text-xl resize-none" 
+                            placeholder="Paste textbook text or additional context here..." 
+                            value={formData.rawText} 
+                            onChange={(e) => setFormData({...formData, rawText: e.target.value})} 
+                          />
+                        </div>
+                      )}
+                      {currentStep === 3 && (
+                        <div className="animate-in slide-in-from-right duration-500 h-full flex flex-col gap-8">
+                          <h3 className="text-3xl font-black text-slate-800">3. Define Scope</h3>
+                          <div className="space-y-6">
+                            <div>
+                              <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2 ml-2">Display Title</label>
+                              <input className="w-full p-6 rounded-2xl bg-slate-50 border-2 border-slate-100 focus:border-yellow-400 outline-none font-bold text-xl" value={formData.customTitle} onChange={(e) => setFormData({...formData, customTitle: e.target.value})} placeholder="e.g. Calculus: Derivative Rules" />
+                            </div>
+                            <div>
+                              <div className="flex justify-between items-end mb-2 ml-2">
+                                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest">Topic Focus</label>
+                                <button 
+                                  onClick={handleSuggestScope}
+                                  disabled={isGeneratingScope || !formData.customTitle.trim()}
+                                  className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-blue-500 hover:text-blue-700 transition-colors disabled:opacity-30"
+                                >
+                                  {isGeneratingScope ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                                  Suggest Scope
+                                </button>
+                              </div>
+                              <textarea className="w-full p-6 h-40 rounded-2xl bg-slate-50 border-2 border-slate-100 focus:border-yellow-400 outline-none font-medium text-xl" value={formData.topic} onChange={(e) => setFormData({...formData, topic: e.target.value})} placeholder="What should the sheet focus on?" />
+                            </div>
+                          </div>
+                        </div>
+                      )}
                       {currentStep === 4 && (
                         <div className="animate-in slide-in-from-right duration-500 h-full flex flex-col gap-8">
                            <h3 className="text-3xl font-black text-slate-800">4. Specification</h3>

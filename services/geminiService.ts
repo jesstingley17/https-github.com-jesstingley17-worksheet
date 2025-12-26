@@ -17,6 +17,7 @@ export interface GenerationOptions {
   includeDiagram?: boolean;
   diagramLabelType?: 'LABELED' | 'BLANK';
   theme?: ThemeType;
+  isMathMode?: boolean;
 }
 
 export interface AnalysisResult {
@@ -103,6 +104,31 @@ export async function generateTopicScopeSuggestion(title: string, ageGroup: stri
   }
 }
 
+export async function refineSourceText(text: string): Promise<string> {
+  if (!text.trim()) return "";
+  const prompt = `
+    Refine the following educational source text to be cleaner and more suitable for generating test questions. 
+    Remove extraneous information like ads, web nav, or filler. 
+    Maintain all key academic facts, technical terms, and core theories.
+    Improve the logical flow if possible.
+    
+    Text: "${text}"
+    
+    Return only the refined text.
+  `;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: prompt,
+    });
+    return response.text || text;
+  } catch (error) {
+    console.error("Failed to refine text", error);
+    return text;
+  }
+}
+
 export async function generateDoodles(topic: string, gradeLevel: string): Promise<string[]> {
   const isSenior = gradeLevel.includes('High School') || gradeLevel.includes('University') || gradeLevel.includes('Professional');
   const style = isSenior ? "technical diagrams, minimalist scientific icons, and neat marginalia" : "cute, friendly, thick-lined cartoon icons and simple educational symbols";
@@ -144,7 +170,8 @@ export async function generateWorksheet(options: GenerationOptions): Promise<Wor
     includeTracing = false,
     includeDiagram = false,
     diagramLabelType = 'LABELED',
-    theme = ThemeType.CLASSIC
+    theme = ThemeType.CLASSIC,
+    isMathMode = false
   } = options;
 
   const isPreschool = gradeLevel.includes("Preschool");
@@ -152,7 +179,6 @@ export async function generateWorksheet(options: GenerationOptions): Promise<Wor
   const shouldGenerateDiagram = (includeDiagram || isInfographic) && !isPreschool;
   let diagramImageBase64 = '';
 
-  // Generate Diagram if requested or in infographic mode (not preschool)
   if (shouldGenerateDiagram) {
     const labelInstruction = diagramLabelType === 'BLANK' && !isInfographic
       ? "The diagram must include clear arrows pointing to major components, but the label text areas MUST be left completely blank or replaced with empty boxes for students to manually fill in."
@@ -182,9 +208,7 @@ export async function generateWorksheet(options: GenerationOptions): Promise<Wor
     }
   }
 
-  // Preschool Educational Level Logic
   if (isPreschool) {
-    // Generate a simple, bold black and white line art coloring page
     const imagePrompt = `A high-quality, very simple, bold black and white line art coloring page for a preschool child. 
     The subject is: ${topic}. 
     Style: Extra-thick black lines, big clear shapes, absolutely no shading, no gray areas, no gradients. 
@@ -199,7 +223,7 @@ export async function generateWorksheet(options: GenerationOptions): Promise<Wor
         },
         config: {
           imageConfig: {
-            aspectRatio: "3:4" // Fills the page better than 1:1
+            aspectRatio: "3:4" 
           }
         }
       });
@@ -213,8 +237,6 @@ export async function generateWorksheet(options: GenerationOptions): Promise<Wor
       }
 
       let questions: any[] = [];
-      // Preschool mode specifically ensures placeholder fields for Name and Date are handled in the UI
-      // but we can also suggest tracing items if requested.
       if (includeTracing) {
         const tracingPrompt = `For a preschool child learning about "${topic}", suggest 2 very simple words related to it for tracing practice.
         Return in JSON format:
@@ -266,16 +288,30 @@ export async function generateWorksheet(options: GenerationOptions): Promise<Wor
     }
   }
 
-  // Standard Logic for other levels (K-12, University, Professional)
   let parts: any[] = [];
   
+  if (fileData) {
+    parts.push({
+      inlineData: {
+        data: fileData.data,
+        mimeType: fileData.mimeType
+      }
+    });
+  }
+
   const countInstruction = Object.entries(questionCounts)
     .filter(([_, count]) => count > 0)
     .map(([type, count]) => `- ${count} items of type ${type}`)
     .join('\n');
 
-  const isSeniorLevel = gradeLevel === 'High School' || gradeLevel === 'University / College' || gradeLevel === 'Professional / Adult';
-  const isAdvancedLevel = gradeLevel === 'University / College' || gradeLevel === 'Professional / Adult';
+  const mathInstruction = isMathMode ? `
+    MODE: SCIENTIFIC/MATHEMATICAL RIGOR.
+    - Questions must use clear mathematical notation.
+    - For exponents, use ^ notation (e.g., x^2).
+    - For fractions, use clear forward slashes or standard text representation.
+    - Ensure questions are technically precise.
+    - For multiple choice options, provide clear numerical or symbolic choices.
+  ` : '';
 
   const infographicInstruction = isInfographic ? `
     MODE: INFOGRAPHIC GENERATION.
@@ -287,117 +323,72 @@ export async function generateWorksheet(options: GenerationOptions): Promise<Wor
     - Provide exactly 6 sections to fill an infographic layout.
   ` : '';
 
-  const systemInstruction = `
-    You are an elite academic curriculum designer.
+  const promptText = `
+    You are an elite academic curriculum designer. 
+    Generate a high-quality, professional worksheet in ${language} for ${gradeLevel} students.
     
-    ACADEMIC RIGOR & TONE:
-    - Grade Level: ${gradeLevel}
-    - Difficulty Level: ${difficulty}
-    - Language: ${language}
-    - Target Length: ${pageTarget} Page(s).
-    - For Senior levels: The material must be academically rigorous, intellectually demanding, and factually flawless.
-
+    TITLE: ${customTitle || 'Untitled Academic Document'}
+    TOPIC: ${topic}
+    DIFFICULTY: ${difficulty}
+    ${rawText ? `SOURCE MATERIAL: ${rawText}` : ''}
+    
+    REQUIREMENTS:
     ${infographicInstruction}
-
-    ${isAdvancedLevel ? `
-    ADVANCED LEVEL SPECIAL INSTRUCTIONS (University/Professional):
-    - Abstract Reasoning: Design content that requires applying theoretical frameworks to novel, abstract, or highly technical scenarios.
-    - Detailed Explanations: Content must explain the conceptual underpinnings, why the fact is logically necessary, and common theoretical pitfalls.
-    ` : ''}
-
-    ${!isInfographic ? `
-    STRICT SENIOR LEVEL RULES (ASSESSMENT MODE):
-    1. NO TRACING.
-    2. NO COPYING.
-    3. TRANSFORMATION: Transform drills into formula application.
-    4. ITEM DISTRIBUTION:
-${countInstruction}
-    ` : ''}
-
-    ${shouldGenerateDiagram && !isInfographic ? `
-    DIAGRAM INTEGRATION: 
-    A professional technical diagram (Exhibit 1) has been provided for this worksheet. 
-    You MUST include at least one question that specifically requires the student to interpret, analyze, or reference components of "Exhibit 1".
-    ` : ''}
-
-    TITLE:
-    - Title should be: "${customTitle || (isInfographic ? 'Educational Infographic: ' + topic : 'Advanced Academic Assessment: ' + topic)}"
-
-    TYPES DEFINITION (If not Infographic):
-       - MCQ, TF, SHORT_ANSWER, VOCABULARY.
-
-    OUTPUT VOLUME:
-    Target ${pageTarget} page(s).
+    ${mathInstruction}
+    ${countInstruction}
+    
+    For each question, include:
+    - Clear, grammatically correct question text.
+    - Multiple choice options if requested (provide 4 options).
+    - The correct answer.
+    - A brief academic explanation/rationale for the answer.
+    - Whether it's a "challenge" question (set true for ~20% of items).
+    
+    Return the result in JSON format only.
   `;
-
-  parts.push({ text: systemInstruction });
-
-  if (fileData) {
-    parts.push({ 
-      inlineData: {
-        data: fileData.data,
-        mimeType: fileData.mimeType
-      }
-    });
-    parts.push({ text: "ANALYSIS TASK: Deconstruct the uploaded source material and integrate its most complex data/theory points into the content." });
-  }
-
-  if (rawText) {
-    parts.push({ text: `REFERENCE CORPUS:\n---\n${rawText}\n---` });
-  }
-
-  parts.push({ text: `PRIMARY FOCUS AREA: ${topic}` });
-
-  const modelToUse = isSeniorLevel ? 'gemini-3-pro-preview' : 'gemini-3-flash-preview';
-
-  const response = await ai.models.generateContent({
-    model: modelToUse,
-    contents: { parts },
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.OBJECT,
-        properties: {
-          title: { type: Type.STRING },
-          topic: { type: Type.STRING },
-          gradeLevel: { type: Type.STRING },
-          questions: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.OBJECT,
-              properties: {
-                id: { type: Type.STRING },
-                type: { type: Type.STRING },
-                question: { type: Type.STRING },
-                options: { 
-                  type: Type.ARRAY,
-                  items: { type: Type.STRING }
-                },
-                correctAnswer: { type: Type.STRING },
-                explanation: { type: Type.STRING },
-                isChallenge: { type: Type.BOOLEAN }
-              },
-              required: ["id", "type", "question", "correctAnswer", "explanation", "isChallenge"]
-            }
-          }
-        },
-        required: ["title", "topic", "gradeLevel", "questions"]
-      }
-    }
-  });
+  
+  parts.push({ text: promptText });
 
   try {
-    const data = JSON.parse(response.text || '{}');
-    if (customTitle && customTitle.trim() !== "") {
-      data.title = customTitle;
-    }
-    const finalWorksheet = data as Worksheet;
+    const response = await ai.models.generateContent({
+      model: "gemini-3-pro-preview",
+      contents: { parts },
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            title: { type: Type.STRING },
+            topic: { type: Type.STRING },
+            questions: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  id: { type: Type.STRING },
+                  type: { type: Type.STRING, enum: Object.values(QuestionType) },
+                  question: { type: Type.STRING },
+                  options: { type: Type.ARRAY, items: { type: Type.STRING } },
+                  correctAnswer: { type: Type.STRING },
+                  explanation: { type: Type.STRING },
+                  isChallenge: { type: Type.BOOLEAN }
+                },
+                required: ["id", "type", "question", "correctAnswer"]
+              }
+            }
+          },
+          required: ["title", "topic", "questions"]
+        }
+      }
+    });
+
+    const worksheet = JSON.parse(response.text || '{}') as Worksheet;
     if (diagramImageBase64) {
-      finalWorksheet.diagramImage = diagramImageBase64;
+      worksheet.diagramImage = diagramImageBase64;
     }
-    return finalWorksheet;
+    return worksheet;
   } catch (error) {
-    console.error("Failed to parse Gemini response", error);
-    throw new Error("Assessment generation failed due to data inconsistency.");
+    console.error("Worksheet generation failed", error);
+    throw error;
   }
 }
