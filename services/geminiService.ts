@@ -1,4 +1,3 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
 import { Worksheet, QuestionType, ThemeType } from "../types";
 
@@ -183,8 +182,14 @@ export async function generateWorksheet(options: GenerationOptions): Promise<Wor
     }
   }
 
+  // Preschool Educational Level Logic
   if (isPreschool) {
-    const imagePrompt = `A high-quality, simple, bold black and white line art coloring page for a preschool child. The subject is: ${topic}. Big, clear shapes, clean outlines only. IMPORTANT: The image must contain NO text, NO words, NO labels, and NO letters inside the drawing area. Only visual line art.`;
+    // Generate a simple, bold black and white line art coloring page
+    const imagePrompt = `A high-quality, very simple, bold black and white line art coloring page for a preschool child. 
+    The subject is: ${topic}. 
+    Style: Extra-thick black lines, big clear shapes, absolutely no shading, no gray areas, no gradients. 
+    IMPORTANT: The image must contain NO text, NO words, NO labels, NO numbers, and NO letters inside the drawing area. 
+    Only visual line art of ${topic}. Ensure the drawing fills as much of the frame as possible for maximum coloring area.`;
     
     try {
       const imgResponse = await ai.models.generateContent({
@@ -194,7 +199,7 @@ export async function generateWorksheet(options: GenerationOptions): Promise<Wor
         },
         config: {
           imageConfig: {
-            aspectRatio: "1:1"
+            aspectRatio: "3:4" // Fills the page better than 1:1
           }
         }
       });
@@ -208,6 +213,8 @@ export async function generateWorksheet(options: GenerationOptions): Promise<Wor
       }
 
       let questions: any[] = [];
+      // Preschool mode specifically ensures placeholder fields for Name and Date are handled in the UI
+      // but we can also suggest tracing items if requested.
       if (includeTracing) {
         const tracingPrompt = `For a preschool child learning about "${topic}", suggest 2 very simple words related to it for tracing practice.
         Return in JSON format:
@@ -242,7 +249,7 @@ export async function generateWorksheet(options: GenerationOptions): Promise<Wor
       }
 
       return {
-        title: customTitle || `Coloring Page: ${topic}`,
+        title: customTitle || `Coloring Practice: ${topic}`,
         topic: topic,
         educationalLevel: gradeLevel,
         questions: questions,
@@ -259,7 +266,7 @@ export async function generateWorksheet(options: GenerationOptions): Promise<Wor
     }
   }
 
-  // Standard Logic for other levels
+  // Standard Logic for other levels (K-12, University, Professional)
   let parts: any[] = [];
   
   const countInstruction = Object.entries(questionCounts)
