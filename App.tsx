@@ -57,8 +57,10 @@ import {
   Sigma,
   Box,
   Tags,
-  Image as ImageIcon,
-  Clock
+  ImageIcon,
+  Clock,
+  ChevronRight,
+  PlusCircle
 } from 'lucide-react';
 
 const WorksheetSkeleton: React.FC<{ theme: ThemeType }> = ({ theme }) => {
@@ -183,12 +185,6 @@ const App: React.FC = () => {
     }
   }), []);
 
-  const activePreset = useMemo(() => {
-    return Object.entries(presets).find(([_, counts]) => {
-      return Object.entries(counts).every(([type, count]) => formData.questionCounts[type as QuestionType] === count);
-    })?.[0] || null;
-  }, [formData.questionCounts, presets]);
-
   const educationalLevels = [
     "Preschool (3-5 years)",
     "Elementary School",
@@ -199,10 +195,6 @@ const App: React.FC = () => {
   ];
 
   const isPreschool = formData.educationalLevel.includes("Preschool");
-  const isSeniorLevel = 
-    formData.educationalLevel === 'High School' || 
-    formData.educationalLevel === 'University / College' || 
-    formData.educationalLevel === 'Professional / Adult';
 
   useEffect(() => {
     if (isPreschool) {
@@ -222,133 +214,30 @@ const App: React.FC = () => {
         console.error("Failed to parse saved worksheets");
       }
     }
-
-    const savedDraft = localStorage.getItem('tm_generator_draft');
-    if (savedDraft) {
-      try {
-        const parsed = JSON.parse(savedDraft);
-        setFormData(parsed);
-      } catch (e) {
-        console.error("Failed to parse generator draft");
-      }
-    }
   }, []);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      localStorage.setItem('tm_generator_draft', JSON.stringify(formData));
-      setLastSavedTime(Date.now());
-    }, 1000);
-
-    return () => clearTimeout(timer);
-  }, [formData]);
-
-  useEffect(() => {
-    if (isCameraActive && videoRef.current) {
-      navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
-        .then(stream => {
-          if (videoRef.current) {
-            videoRef.current.srcObject = stream;
-          }
-        })
-        .catch(err => {
-          console.error("Camera error:", err);
-          alert("Could not access camera. Please check permissions.");
-          setIsCameraActive(false);
-        });
-    }
-
-    return () => {
-      if (videoRef.current && videoRef.current.srcObject) {
-        const stream = videoRef.current.srcObject as MediaStream;
-        stream.getTracks().forEach(track => track.stop());
-      }
-    };
-  }, [isCameraActive]);
-
-  const triggerAnalysis = async (fData?: { data: string; mimeType: string }, rText?: string) => {
-    if (!fData && !rText) return;
-    setIsAnalyzing(true);
-    try {
-      const result = await analyzeSourceMaterial(fData, rText);
-      if (result) {
-        setFormData(prev => ({
-          ...prev,
-          customTitle: result.suggestedTitle,
-          topic: result.suggestedTopicScope
-        }));
-      }
-    } catch (e) {
-      console.error("Analysis failed", e);
-    } finally {
-      setIsAnalyzing(false);
-    }
-  };
-
-  const saveToStorage = (list: Worksheet[]) => {
-    localStorage.setItem('tm_saved_worksheets', JSON.stringify(list));
-    setSavedWorksheets(list);
-  };
 
   const handleSaveCurrent = () => {
     if (!worksheet) return;
     const newSaved = [...savedWorksheets];
     const existingIdx = newSaved.findIndex(w => w.id === worksheet.id);
-    
-    const worksheetToSave = {
-      ...worksheet,
-      id: worksheet.id || Date.now().toString(),
-      savedAt: Date.now()
-    };
-
-    if (existingIdx >= 0) {
-      newSaved[existingIdx] = worksheetToSave;
-    } else {
-      newSaved.unshift(worksheetToSave);
-    }
-    saveToStorage(newSaved);
+    const worksheetToSave = { ...worksheet, id: worksheet.id || Date.now().toString(), savedAt: Date.now() };
+    if (existingIdx >= 0) newSaved[existingIdx] = worksheetToSave;
+    else newSaved.unshift(worksheetToSave);
+    localStorage.setItem('tm_saved_worksheets', JSON.stringify(newSaved));
+    setSavedWorksheets(newSaved);
     alert("Worksheet saved to library!");
   };
 
   const handleDeleteSaved = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     const newSaved = savedWorksheets.filter(w => w.id !== id);
-    saveToStorage(newSaved);
+    localStorage.setItem('tm_saved_worksheets', JSON.stringify(newSaved));
+    setSavedWorksheets(newSaved);
   };
 
   const handleLoadSaved = (saved: Worksheet) => {
     setWorksheet(saved);
     setMode(AppMode.WORKSHEET);
-  };
-
-  const resetForm = () => {
-    if (confirm("Clear all inputs and start fresh?")) {
-      const empty = {
-        topic: '',
-        customTitle: '',
-        educationalLevel: 'High School',
-        difficulty: 'Medium',
-        language: 'English',
-        rawText: '',
-        pageCount: 1,
-        includeTracing: false,
-        includeDiagram: false,
-        diagramLabelType: 'LABELED' as const,
-        questionCounts: {
-          [QuestionType.MCQ]: 2,
-          [QuestionType.TF]: 2,
-          [QuestionType.SHORT_ANSWER]: 1,
-          [QuestionType.VOCABULARY]: 1,
-          [QuestionType.CHARACTER_DRILL]: 0,
-          [QuestionType.SYMBOL_DRILL]: 0,
-          [QuestionType.SENTENCE_DRILL]: 0,
-        }
-      };
-      setFormData(empty);
-      setFileData(null);
-      setCurrentStep(1);
-      localStorage.removeItem('tm_generator_draft');
-    }
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -358,17 +247,23 @@ const App: React.FC = () => {
       reader.onloadend = () => {
         const result = reader.result as string;
         const base64String = result.split(',')[1];
-        const newFileData = { 
-          data: base64String, 
-          mimeType: file.type, 
-          name: file.name,
-          preview: file.type.startsWith('image/') ? result : undefined
-        };
+        const newFileData = { data: base64String, mimeType: file.type, name: file.name, preview: file.type.startsWith('image/') ? result : undefined };
         setFileData(newFileData);
         triggerAnalysis(newFileData, formData.rawText);
       };
       reader.readAsDataURL(file);
     }
+  };
+
+  const triggerAnalysis = async (fData?: { data: string; mimeType: string }, rText?: string) => {
+    if (!fData && !rText) return;
+    setIsAnalyzing(true);
+    try {
+      const result = await analyzeSourceMaterial(fData, rText);
+      if (result) {
+        setFormData(prev => ({ ...prev, customTitle: result.suggestedTitle, topic: result.suggestedTopicScope }));
+      }
+    } catch (e) { console.error(e); } finally { setIsAnalyzing(false); }
   };
 
   const capturePhoto = () => {
@@ -382,34 +277,11 @@ const App: React.FC = () => {
         ctx.drawImage(video, 0, 0);
         const dataUrl = canvas.toDataURL('image/jpeg');
         const base64String = dataUrl.split(',')[1];
-        const newFileData = {
-          data: base64String,
-          mimeType: 'image/jpeg',
-          name: `camera_capture_${Date.now()}.jpg`,
-          preview: dataUrl
-        };
+        const newFileData = { data: base64String, mimeType: 'image/jpeg', name: `camera_capture_${Date.now()}.jpg`, preview: dataUrl };
         setFileData(newFileData);
         setIsCameraActive(false);
         triggerAnalysis(newFileData, formData.rawText);
       }
-    }
-  };
-
-  const handleGenerateScope = async () => {
-    if (!formData.customTitle.trim()) {
-      alert("Please enter a Display Title first so Helen can think of a scope!");
-      return;
-    }
-    setIsGeneratingScope(true);
-    try {
-      const suggestion = await generateTopicScopeSuggestion(formData.customTitle, formData.educationalLevel);
-      if (suggestion) {
-        setFormData(prev => ({ ...prev, topic: suggestion }));
-      }
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setIsGeneratingScope(false);
     }
   };
 
@@ -420,10 +292,9 @@ const App: React.FC = () => {
       return;
     }
     if (!formData.topic.trim()) {
-      alert("Please provide a topic scope for the worksheet.");
+      alert("Please provide a topic focus.");
       return;
     }
-
     setLoading(true);
     try {
       const result = await generateWorksheet({
@@ -441,265 +312,88 @@ const App: React.FC = () => {
         rawText: formData.rawText || undefined,
         theme: theme,
       });
-      const finalResult = { ...result, id: Date.now().toString(), savedAt: Date.now(), educationalLevel: formData.educationalLevel };
-      setWorksheet(finalResult);
-      setShowTeacherKey(false);
+      setWorksheet({ ...result, id: Date.now().toString(), savedAt: Date.now(), educationalLevel: formData.educationalLevel });
       setMode(AppMode.WORKSHEET);
-    } catch (error) {
-      alert("Something went wrong. Teach in Minutes is taking a break. Please check your inputs.");
-    } finally {
-      setLoading(false);
-    }
+    } catch (error) { alert("Failed to generate worksheet."); } finally { setLoading(false); }
+  };
+
+  const startWithBlankSheet = () => {
+    setWorksheet({ id: Date.now().toString(), title: formData.customTitle || "Untitled Academic Document", topic: formData.topic || "Manual Construction", educationalLevel: formData.educationalLevel, questions: [], savedAt: Date.now() });
+    setMode(AppMode.WORKSHEET);
   };
 
   const handleExportPDF = async () => {
     const element = document.getElementById('worksheet-content');
     if (!element) return;
-    
     setLoading(true);
-    const originalDPR = window.devicePixelRatio;
-    
     try {
-      // Temporarily override DPR for consistency in canvas rendering
-      Object.defineProperty(window, 'devicePixelRatio', {
-        get: () => 1,
-        configurable: true
-      });
-
-      const canvas = await html2canvas(element, {
-        scale: 3, 
-        useCORS: true,
-        logging: false,
-        backgroundColor: '#ffffff'
-      });
-
-      // Restore DPR
-      Object.defineProperty(window, 'devicePixelRatio', {
-        get: () => originalDPR,
-        configurable: true
-      });
-
+      const canvas = await html2canvas(element, { scale: 3, useCORS: true, logging: false, backgroundColor: '#ffffff' });
       const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4',
-      });
-      
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-      
       pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
       pdf.save(`${worksheet?.title || 'worksheet'}.pdf`);
-    } catch (error) {
-      console.error('PDF Export failed:', error);
-      alert('PDF generation failed. Use Print as a backup.');
-    } finally {
-      setLoading(false);
-    }
+    } catch (error) { console.error(error); } finally { setLoading(false); }
   };
 
   const handleExportJSON = () => {
     if (!worksheet) return;
-    const dataStr = JSON.stringify(worksheet, null, 2);
-    const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
-    const exportFileDefaultName = `${(worksheet.title || 'worksheet').replace(/\s+/g, '_').toLowerCase()}_data.json`;
-    const linkElement = document.createElement('a');
-    linkElement.setAttribute('href', dataUri);
-    linkElement.setAttribute('download', exportFileDefaultName);
-    linkElement.click();
+    const link = document.createElement('a');
+    link.href = 'data:application/json;charset=utf-8,'+ encodeURIComponent(JSON.stringify(worksheet, null, 2));
+    link.download = `${(worksheet.title || 'worksheet').replace(/\s+/g, '_').toLowerCase()}.json`;
+    link.click();
   };
 
   const updateCount = (type: QuestionType, delta: number) => {
-    setFormData(prev => ({
-      ...prev,
-      questionCounts: {
-        ...prev.questionCounts,
-        [type]: Math.max(0, Math.min(10, prev.questionCounts[type] + delta))
-      }
-    }));
+    setFormData(prev => ({ ...prev, questionCounts: { ...prev.questionCounts, [type]: Math.max(0, Math.min(10, prev.questionCounts[type] + delta)) } }));
   };
 
-  const applyPreset = (presetName: string) => {
-    if (presets[presetName]) {
-      setFormData(prev => ({
-        ...prev,
-        questionCounts: presets[presetName]
-      }));
-    }
-  };
-
-  const nextStep = () => {
-    if (currentStep === 3 && !formData.topic.trim()) return;
-    setCurrentStep(prev => Math.min(prev + 1, 4));
-  };
+  const nextStep = () => currentStep < 4 && setCurrentStep(prev => prev + 1);
   const prevStep = () => setCurrentStep(prev => Math.max(prev - 1, 1));
+  const skipStep = () => {
+     if (currentStep < 3) nextStep();
+     else if (currentStep === 3) {
+       if (!formData.topic.trim()) setFormData(prev => ({ ...prev, topic: "General Assessment", customTitle: prev.customTitle || "New Worksheet" }));
+       nextStep();
+     }
+  };
 
   return (
     <div className="min-h-screen flex bg-slate-50">
       <aside className="w-80 bg-white border-r border-slate-200 hidden lg:flex flex-col fixed h-full z-10 no-print">
         <div className="p-6 border-b border-slate-100 flex items-center gap-3">
-          <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg transform -rotate-3">
-            <GraduationCap className="text-white w-6 h-6" />
-          </div>
-          <div>
-            <h1 className="font-handwriting-header text-2xl text-slate-800">Teach in Minutes</h1>
-            <p className="text-[10px] uppercase tracking-widest text-slate-400 font-bold">Educational Generator</p>
-          </div>
+          <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg transform -rotate-3"><GraduationCap className="text-white w-6 h-6" /></div>
+          <div><h1 className="font-handwriting-header text-2xl text-slate-800">Teach in Minutes</h1><p className="text-[10px] uppercase tracking-widest text-slate-400 font-bold">Educational Generator</p></div>
         </div>
-
         <div className="flex-1 overflow-y-auto p-6 space-y-8">
-          <div>
-            <h3 className="text-xs uppercase tracking-widest text-slate-400 font-bold mb-4 flex items-center gap-2">
-              <Award className="w-3 h-3" /> Master Level
-            </h3>
-            <select 
-              className="w-full p-3 rounded-xl bg-slate-100 border-2 border-transparent focus:border-blue-400 focus:bg-white outline-none font-bold text-slate-700 text-sm transition-all"
-              value={formData.educationalLevel}
-              onChange={(e) => setFormData({...formData, educationalLevel: e.target.value})}
-            >
-              {educationalLevels.map(lvl => <option key={lvl} value={lvl}>{lvl}</option>)}
-            </select>
-          </div>
-
-          <div>
-            <h3 className="text-xs uppercase tracking-widest text-slate-400 font-bold mb-4 flex items-center gap-2">
-              <Layers className="w-3 h-3" /> Tools
-            </h3>
-            <div className="space-y-2">
-              <button onClick={() => { setMode(AppMode.GENERATOR); setCurrentStep(1); }} className={`w-full flex items-center gap-3 p-3 rounded-xl font-medium transition-all ${mode === AppMode.GENERATOR ? 'bg-slate-100 text-slate-900' : 'text-slate-500 hover:bg-slate-50'}`}>
-                <Plus className="w-5 h-5 text-yellow-500" /> New Session
-              </button>
-              <button onClick={() => worksheet && setMode(AppMode.WORKSHEET)} disabled={!worksheet} className={`w-full flex items-center gap-3 p-3 rounded-xl font-medium transition-all ${mode === AppMode.WORKSHEET ? 'bg-slate-100 text-slate-900' : 'text-slate-500 hover:bg-slate-50 disabled:opacity-30'}`}>
-                <FileText className="w-5 h-5" /> Active Sheet
-              </button>
-            </div>
-          </div>
-
-          <div>
-            <h3 className="text-xs uppercase tracking-widest text-slate-400 font-bold mb-4 flex items-center gap-2">
-              <History className="w-3 h-3" /> Archive
-            </h3>
-            <div className="space-y-2 max-h-72 overflow-y-auto pr-2 custom-scrollbar">
-              {savedWorksheets.length === 0 ? (
-                <div className="text-center p-6 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
-                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">Empty Archive</p>
-                </div>
-              ) : (
-                savedWorksheets.map((saved) => (
-                  <div 
-                    key={saved.id}
-                    onClick={() => handleLoadSaved(saved)}
-                    className="group relative flex flex-col p-3 rounded-xl bg-slate-50 border border-slate-100 hover:bg-white hover:border-yellow-200 hover:shadow-sm cursor-pointer transition-all"
-                  >
-                    <span className="font-bold text-slate-700 text-xs truncate pr-6">{saved.title}</span>
-                    <button 
-                      onClick={(e) => handleDeleteSaved(saved.id!, e)}
-                      className="absolute right-2 top-2 p-1 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"
-                    >
-                      <Trash2 className="w-3 h-3" />
-                    </button>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-          
-          {worksheet && (
-            <div className="pt-8 border-t border-slate-100 space-y-3">
-              <button onClick={handleSaveCurrent} className="w-full flex items-center justify-center gap-3 p-4 bg-yellow-400 text-yellow-900 rounded-2xl font-black hover:bg-yellow-500 transition-all shadow-lg active:scale-95">
-                <Save className="w-5 h-5" /> Save To Library
-              </button>
-            </div>
-          )}
+          <div><h3 className="text-xs uppercase tracking-widest text-slate-400 font-bold mb-4 flex items-center gap-2"><Award className="w-3 h-3" /> Master Level</h3><select className="w-full p-3 rounded-xl bg-slate-100 border-2 border-transparent focus:border-blue-400 focus:bg-white outline-none font-bold text-slate-700 text-sm transition-all" value={formData.educationalLevel} onChange={(e) => setFormData({...formData, educationalLevel: e.target.value})}>{educationalLevels.map(lvl => <option key={lvl} value={lvl}>{lvl}</option>)}</select></div>
+          <div><h3 className="text-xs uppercase tracking-widest text-slate-400 font-bold mb-4 flex items-center gap-2"><Layers className="w-3 h-3" /> Tools</h3><div className="space-y-2"><button onClick={() => { setMode(AppMode.GENERATOR); setCurrentStep(1); }} className={`w-full flex items-center gap-3 p-3 rounded-xl font-medium transition-all ${mode === AppMode.GENERATOR ? 'bg-slate-100 text-slate-900' : 'text-slate-500 hover:bg-slate-50'}`}><Plus className="w-5 h-5 text-yellow-500" /> New Session</button><button onClick={() => worksheet && setMode(AppMode.WORKSHEET)} disabled={!worksheet} className={`w-full flex items-center gap-3 p-3 rounded-xl font-medium transition-all ${mode === AppMode.WORKSHEET ? 'bg-slate-100 text-slate-900' : 'text-slate-500 hover:bg-slate-50 disabled:opacity-30'}`}><FileText className="w-5 h-5" /> Active Sheet</button></div></div>
+          <div><h3 className="text-xs uppercase tracking-widest text-slate-400 font-bold mb-4 flex items-center gap-2"><History className="w-3 h-3" /> Archive</h3><div className="space-y-2">{savedWorksheets.map((saved) => (<div key={saved.id} onClick={() => handleLoadSaved(saved)} className="group relative flex flex-col p-3 rounded-xl bg-slate-50 border border-slate-100 hover:bg-white hover:border-yellow-200 hover:shadow-sm cursor-pointer transition-all"><span className="font-bold text-slate-700 text-xs truncate pr-6">{saved.title}</span><button onClick={(e) => handleDeleteSaved(saved.id!, e)} className="absolute right-2 top-2 p-1 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"><Trash2 className="w-3 h-3" /></button></div>))}</div></div>
+          {worksheet && (<div className="pt-8 border-t border-slate-100 space-y-3"><button onClick={handleSaveCurrent} className="w-full flex items-center justify-center gap-3 p-4 bg-yellow-400 text-yellow-900 rounded-2xl font-black hover:bg-yellow-500 transition-all shadow-lg active:scale-95"><Save className="w-5 h-5" /> Save To Library</button></div>)}
         </div>
       </aside>
 
       <main className="flex-1 lg:ml-80 min-h-screen relative">
         <div className="p-4 sm:p-8">
-          {loading ? (
-            <div className="pt-12">
-              <WorksheetSkeleton theme={theme} />
-            </div>
-          ) : (
+          {loading ? (<div className="pt-12"><WorksheetSkeleton theme={theme} /></div>) : (
             <>
               {mode === AppMode.GENERATOR && (
                 <div className="max-w-5xl mx-auto pt-8">
-                  <div className="text-center mb-10">
-                    <h2 className="font-handwriting-header text-5xl sm:text-7xl text-slate-800 mb-4">
-                      Teach in <MarkerHighlight>Minutes</MarkerHighlight>
-                    </h2>
-                    <div className="flex items-center justify-center gap-3 mt-10">
-                       {[1, 2, 3, 4].map((s) => (
-                         <div key={s} className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-sm border-2 ${currentStep === s ? 'bg-yellow-400 border-yellow-400 text-white shadow-xl scale-110' : currentStep > s ? 'bg-green-500 border-green-500 text-white' : 'bg-white border-slate-200 text-slate-300'}`}>
-                           {currentStep > s ? <CheckCircle2 className="w-6 h-6" /> : s}
-                         </div>
-                       ))}
-                    </div>
-                  </div>
-
+                  <div className="text-center mb-10"><h2 className="font-handwriting-header text-5xl sm:text-7xl text-slate-800 mb-4">Teach in <MarkerHighlight>Minutes</MarkerHighlight></h2><div className="flex items-center justify-center gap-3 mt-10">{[1, 2, 3, 4].map((s) => (<div key={s} className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-sm border-2 ${currentStep === s ? 'bg-yellow-400 border-yellow-400 text-white shadow-xl scale-110' : currentStep > s ? 'bg-green-500 border-green-500 text-white' : 'bg-white border-slate-200 text-slate-300'}`}>{currentStep > s ? <CheckCircle2 className="w-6 h-6" /> : s}</div>))}</div></div>
                   <div className="bg-white rounded-[3rem] shadow-xl border border-slate-100 overflow-hidden mb-12 flex flex-col min-h-[600px]">
                     <div className="flex-1 p-8 sm:p-12">
                       {currentStep === 1 && (
                         <div className="animate-in slide-in-from-right duration-500 h-full flex flex-col justify-center items-center gap-8">
                           <h3 className="text-3xl font-black text-slate-800">1. Scan Source Material</h3>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 w-full max-w-2xl">
-                             <div onClick={() => fileInputRef.current?.click()} className="border-4 border-dashed border-slate-100 rounded-[2.5rem] p-12 text-center hover:border-yellow-200 transition-all cursor-pointer group bg-slate-50/50 flex flex-col items-center">
-                                <input type="file" ref={fileInputRef} className="hidden" accept="image/*,application/pdf" onChange={handleFileChange} />
-                                <Upload className="w-12 h-12 text-yellow-500 mb-4 group-hover:scale-110 transition-transform" />
-                                <p className="font-bold text-slate-700">Browse Files</p>
-                             </div>
-                             <div onClick={() => setIsCameraActive(true)} className="border-4 border-dashed border-slate-100 rounded-[2.5rem] p-12 text-center hover:border-yellow-200 transition-all cursor-pointer group bg-slate-50/50 flex flex-col items-center">
-                                <Camera className="w-12 h-12 text-blue-500 mb-4 group-hover:scale-110 transition-transform" />
-                                <p className="font-bold text-slate-700">Live Camera</p>
-                             </div>
-                          </div>
-                          {isCameraActive && (
-                            <div className="fixed inset-0 bg-black/90 z-[200] flex flex-col items-center justify-center p-4">
-                               <video ref={videoRef} autoPlay playsInline className="max-w-full max-h-[70vh] rounded-3xl border-4 border-white/20" />
-                               <div className="mt-8 flex gap-4">
-                                  <button onClick={capturePhoto} className="w-20 h-20 bg-white rounded-full flex items-center justify-center shadow-2xl active:scale-90"><div className="w-16 h-16 border-4 border-slate-900 rounded-full"></div></button>
-                                  <button onClick={() => setIsCameraActive(false)} className="w-20 h-20 bg-red-500 text-white rounded-full flex items-center justify-center shadow-2xl"><X className="w-10 h-10" /></button>
-                               </div>
-                               <canvas ref={canvasRef} className="hidden" />
-                            </div>
-                          )}
-                          {fileData && (
-                            <div className="p-4 bg-green-50 text-green-700 rounded-2xl flex items-center gap-2 font-bold animate-in zoom-in">
-                               <CheckCircle2 className="w-5 h-5" /> {fileData.name} loaded.
-                            </div>
-                          )}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 w-full max-w-2xl"><div onClick={() => fileInputRef.current?.click()} className="border-4 border-dashed border-slate-100 rounded-[2.5rem] p-12 text-center hover:border-yellow-200 transition-all cursor-pointer group bg-slate-50/50 flex flex-col items-center"><input type="file" ref={fileInputRef} className="hidden" accept="image/*,application/pdf" onChange={handleFileChange} /><Upload className="w-12 h-12 text-yellow-500 mb-4 group-hover:scale-110 transition-transform" /><p className="font-bold text-slate-700">Browse Files</p></div><div onClick={() => setIsCameraActive(true)} className="border-4 border-dashed border-slate-100 rounded-[2.5rem] p-12 text-center hover:border-yellow-200 transition-all cursor-pointer group bg-slate-50/50 flex flex-col items-center"><Camera className="w-12 h-12 text-blue-500 mb-4 group-hover:scale-110 transition-transform" /><p className="font-bold text-slate-700">Live Camera</p></div></div>
+                          <div className="mt-8 flex flex-col items-center gap-4"><div className="flex items-center gap-3 text-slate-300"><div className="h-[1px] w-20 bg-current"></div><span className="font-black text-xs uppercase tracking-widest">Or Start Fresh</span><div className="h-[1px] w-20 bg-current"></div></div><button onClick={startWithBlankSheet} className="flex items-center gap-3 px-8 py-4 bg-slate-900 text-white rounded-2xl font-black hover:bg-slate-800 transition-all shadow-xl active:scale-95 group"><PlusCircle className="w-6 h-6 text-yellow-400 group-hover:rotate-90 transition-transform" /> Start with Blank Sheet</button><p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight max-w-[280px] text-center italic">Best for manual building from the ground up using our designer tools.</p></div>
+                          {isCameraActive && (<div className="fixed inset-0 bg-black/90 z-[200] flex flex-col items-center justify-center p-4"><video ref={videoRef} autoPlay playsInline className="max-w-full max-h-[70vh] rounded-3xl border-4 border-white/20" /><div className="mt-8 flex gap-4"><button onClick={capturePhoto} className="w-20 h-20 bg-white rounded-full flex items-center justify-center shadow-2xl active:scale-90"><div className="w-16 h-16 border-4 border-slate-900 rounded-full"></div></button><button onClick={() => setIsCameraActive(false)} className="w-20 h-20 bg-red-500 text-white rounded-full flex items-center justify-center shadow-2xl"><X className="w-10 h-10" /></button></div><canvas ref={canvasRef} className="hidden" /></div>)}
+                          {fileData && (<div className="p-4 bg-green-50 text-green-700 rounded-2xl flex items-center gap-2 font-bold animate-in zoom-in"><CheckCircle2 className="w-5 h-5" /> {fileData.name} loaded.</div>)}
                         </div>
                       )}
-
-                      {currentStep === 2 && (
-                        <div className="animate-in slide-in-from-right duration-500 h-full flex flex-col gap-6">
-                           <h3 className="text-3xl font-black text-slate-800">2. Text Integration</h3>
-                           <textarea 
-                             className="flex-1 w-full p-8 rounded-[2rem] bg-slate-50 border-2 border-slate-100 focus:border-yellow-400 focus:bg-white outline-none font-medium text-xl resize-none"
-                             placeholder="Paste textbook text or additional context here..."
-                             value={formData.rawText}
-                             onChange={(e) => setFormData({...formData, rawText: e.target.value})}
-                           />
-                        </div>
-                      )}
-
-                      {currentStep === 3 && (
-                        <div className="animate-in slide-in-from-right duration-500 h-full flex flex-col gap-8">
-                           <h3 className="text-3xl font-black text-slate-800">3. Define Scope</h3>
-                           <div className="space-y-6">
-                              <div>
-                                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2 ml-2">Display Title</label>
-                                <input className="w-full p-6 rounded-2xl bg-slate-50 border-2 border-slate-100 focus:border-yellow-400 outline-none font-bold text-xl" value={formData.customTitle} onChange={(e) => setFormData({...formData, customTitle: e.target.value})} placeholder="e.g. Calculus: Derivative Rules" />
-                              </div>
-                              <div>
-                                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2 ml-2">Topic Focus</label>
-                                <textarea className="w-full p-6 h-40 rounded-2xl bg-slate-50 border-2 border-slate-100 focus:border-yellow-400 outline-none font-medium text-xl" value={formData.topic} onChange={(e) => setFormData({...formData, topic: e.target.value})} placeholder="What should the sheet focus on?" />
-                              </div>
-                           </div>
-                        </div>
-                      )}
-
+                      {currentStep === 2 && (<div className="animate-in slide-in-from-right duration-500 h-full flex flex-col gap-6"><h3 className="text-3xl font-black text-slate-800">2. Text Integration</h3><textarea className="flex-1 w-full p-8 rounded-[2rem] bg-slate-50 border-2 border-slate-100 focus:border-yellow-400 focus:bg-white outline-none font-medium text-xl resize-none" placeholder="Paste textbook text or additional context here..." value={formData.rawText} onChange={(e) => setFormData({...formData, rawText: e.target.value})} /></div>)}
+                      {currentStep === 3 && (<div className="animate-in slide-in-from-right duration-500 h-full flex flex-col gap-8"><h3 className="text-3xl font-black text-slate-800">3. Define Scope</h3><div className="space-y-6"><div><label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2 ml-2">Display Title</label><input className="w-full p-6 rounded-2xl bg-slate-50 border-2 border-slate-100 focus:border-yellow-400 outline-none font-bold text-xl" value={formData.customTitle} onChange={(e) => setFormData({...formData, customTitle: e.target.value})} placeholder="e.g. Calculus: Derivative Rules" /></div><div><label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2 ml-2">Topic Focus</label><textarea className="w-full p-6 h-40 rounded-2xl bg-slate-50 border-2 border-slate-100 focus:border-yellow-400 outline-none font-medium text-xl" value={formData.topic} onChange={(e) => setFormData({...formData, topic: e.target.value})} placeholder="What should the sheet focus on?" /></div></div></div>)}
                       {currentStep === 4 && (
                         <div className="animate-in slide-in-from-right duration-500 h-full flex flex-col gap-8">
                            <h3 className="text-3xl font-black text-slate-800">4. Specification</h3>
@@ -708,28 +402,28 @@ const App: React.FC = () => {
                                  <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Question Distribution</h4>
                                  <div className="space-y-4">
                                     {Object.entries(formData.questionCounts).map(([type, count]) => (
-                                      <div key={type} className="flex items-center justify-between p-3 bg-white rounded-xl shadow-sm">
-                                         <span className="font-bold text-slate-600 capitalize">{type.toLowerCase().replace('_', ' ')}</span>
-                                         <div className="flex items-center gap-4">
-                                            <button onClick={() => updateCount(type as QuestionType, -1)} className="p-1 text-slate-300 hover:text-slate-600"><Minus className="w-5 h-5" /></button>
-                                            <span className="font-black w-4 text-center">{count}</span>
-                                            <button onClick={() => updateCount(type as QuestionType, 1)} className="p-1 text-slate-300 hover:text-slate-600"><Plus className="w-5 h-5" /></button>
-                                         </div>
-                                      </div>
+                                      <div key={type} className="flex items-center justify-between p-3 bg-white rounded-xl shadow-sm"><span className="font-bold text-slate-600 capitalize">{type.toLowerCase().replace('_', ' ')}</span><div className="flex items-center gap-4"><button onClick={() => updateCount(type as QuestionType, -1)} className="p-1 text-slate-300 hover:text-slate-600"><Minus className="w-5 h-5" /></button><span className="font-black w-4 text-center">{count}</span><button onClick={() => updateCount(type as QuestionType, 1)} className="p-1 text-slate-300 hover:text-slate-600"><Plus className="w-5 h-5" /></button></div></div>
                                     ))}
                                  </div>
                               </div>
                               <div className="space-y-6">
-                                 <div className="p-4 bg-blue-50 text-blue-800 rounded-2xl border border-blue-100">
-                                    <div className="flex items-center gap-3 font-bold mb-2"><Info className="w-5 h-5" /> Summary</div>
-                                    <p className="text-sm opacity-80">Rigor: {formData.difficulty} | Level: {formData.educationalLevel}</p>
-                                 </div>
-                                 <div onClick={() => setIsMathMode(!isMathMode)} className={`p-6 rounded-2xl border-2 cursor-pointer transition-all flex items-center justify-between ${isMathMode ? 'bg-blue-600 border-blue-600 text-white shadow-lg' : 'bg-white border-slate-200 text-slate-400'}`}>
-                                    <div className="flex items-center gap-3">
-                                       <Sigma className="w-6 h-6" />
-                                       <span className="font-black uppercase tracking-widest text-sm">Enable Math Mode</span>
+                                 <div className="p-6 bg-white rounded-[2rem] border-2 border-slate-100 shadow-sm flex flex-col gap-4">
+                                    <div className="flex items-center justify-between">
+                                       <div className="flex items-center gap-3">
+                                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-md transition-colors ${isMathMode ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-400'}`}><Sigma className="w-6 h-6" /></div>
+                                          <div>
+                                             <span className="block font-black uppercase tracking-widest text-[10px] text-slate-400">Scientific Mode</span>
+                                             <span className="block font-bold text-slate-800 text-sm">Math Mode</span>
+                                          </div>
+                                       </div>
+                                       <button 
+                                          onClick={() => setIsMathMode(!isMathMode)}
+                                          className={`relative w-14 h-8 rounded-full transition-colors duration-300 focus:outline-none ${isMathMode ? 'bg-blue-600' : 'bg-slate-200'}`}
+                                       >
+                                          <div className={`absolute top-1 left-1 w-6 h-6 bg-white rounded-full shadow-md transform transition-transform duration-300 ${isMathMode ? 'translate-x-6' : 'translate-x-0'}`} />
+                                       </button>
                                     </div>
-                                    {isMathMode ? <CheckCircle2 className="w-6 h-6" /> : <div className="w-6 h-6 border-2 border-slate-200 rounded-full" />}
+                                    <p className="text-[10px] font-medium text-slate-400 leading-relaxed px-1">Optimizes spacing and font rendering for mathematical formulas, exponents, and complex notation to prevent overlap.</p>
                                  </div>
                                  <button onClick={handleGenerate} className="w-full py-6 bg-yellow-400 text-yellow-900 rounded-[2rem] font-black text-2xl shadow-xl hover:bg-yellow-500 active:scale-95 transition-all">Build Sheet</button>
                               </div>
@@ -737,27 +431,18 @@ const App: React.FC = () => {
                         </div>
                       )}
                     </div>
-                    
                     <div className="p-8 bg-slate-50 border-t border-slate-100 flex justify-between items-center">
-                       <button onClick={prevStep} disabled={currentStep === 1} className="flex items-center gap-2 px-8 py-4 text-slate-400 font-black uppercase disabled:opacity-0 transition-all"><ArrowLeft className="w-6 h-6" /> Previous</button>
-                       <button onClick={nextStep} disabled={currentStep === 4 || (currentStep === 3 && !formData.topic.trim())} className="flex items-center gap-2 px-10 py-4 bg-white border-2 border-slate-100 rounded-2xl font-black uppercase text-slate-800 shadow-sm active:scale-95 disabled:opacity-0">Next <ArrowRight className="w-6 h-6" /></button>
+                       <div className="flex gap-4"><button onClick={prevStep} disabled={currentStep === 1} className="flex items-center gap-2 px-8 py-4 text-slate-400 font-black uppercase disabled:opacity-0 transition-all"><ArrowLeft className="w-6 h-6" /> Back</button></div>
+                       <div className="flex gap-4 items-center">{currentStep < 4 && (<button onClick={skipStep} className="flex items-center gap-2 px-6 py-4 text-slate-400 font-black uppercase hover:text-slate-600 transition-all">Skip Step</button>)}<button onClick={nextStep} disabled={currentStep === 4 || (currentStep === 3 && !formData.topic.trim())} className="flex items-center gap-2 px-10 py-4 bg-white border-2 border-slate-100 rounded-2xl font-black uppercase text-slate-800 shadow-sm active:scale-95 disabled:opacity-50 disabled:bg-slate-50 disabled:text-slate-200 transition-all">Next <ArrowRight className="w-6 h-6" /></button></div>
                     </div>
                   </div>
                 </div>
               )}
-
               {mode === AppMode.WORKSHEET && worksheet && (
                 <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 pt-8 pb-32">
                   <div className="max-w-4xl mx-auto mb-8 bg-white p-4 rounded-3xl shadow-sm border border-slate-100 no-print sticky top-4 z-50 flex flex-col md:flex-row justify-between items-center gap-4">
-                    <div className="flex items-center gap-4">
-                       <button onClick={() => setMode(AppMode.GENERATOR)} className="p-3 bg-slate-100 rounded-xl text-slate-500 hover:text-slate-800"><ArrowLeft className="w-5 h-5" /></button>
-                       <div className="font-bold text-slate-600">Document Ready</div>
-                    </div>
-                    <div className="flex gap-2">
-                       <button onClick={handleExportPDF} className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg active:scale-95"><Printer className="w-5 h-5" /> PDF</button>
-                       <button onClick={handleExportJSON} className="flex items-center gap-2 px-6 py-3 bg-slate-900 text-white rounded-xl font-bold active:scale-95"><FileJson className="w-5 h-5" /> Data</button>
-                       <button onClick={handleSaveCurrent} className="flex items-center gap-2 px-6 py-3 bg-yellow-400 text-yellow-900 rounded-xl font-bold active:scale-95"><Save className="w-5 h-5" /> Save</button>
-                    </div>
+                    <div className="flex items-center gap-4"><button onClick={() => setMode(AppMode.GENERATOR)} className="p-3 bg-slate-100 rounded-xl text-slate-500 hover:text-slate-800"><ArrowLeft className="w-5 h-5" /></button><div className="font-bold text-slate-600">Document Editor</div></div>
+                    <div className="flex gap-2"><button onClick={handleExportPDF} className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg active:scale-95"><Printer className="w-5 h-5" /> PDF</button><button onClick={handleExportJSON} className="flex items-center gap-2 px-6 py-3 bg-slate-900 text-white rounded-xl font-bold active:scale-95"><FileJson className="w-5 h-5" /> Data</button><button onClick={handleSaveCurrent} className="flex items-center gap-2 px-6 py-3 bg-yellow-400 text-yellow-900 rounded-xl font-bold active:scale-95"><Save className="w-5 h-5" /> Save</button></div>
                   </div>
                   <WorksheetView worksheet={worksheet} theme={theme} showKey={showTeacherKey} isMathMode={isMathMode} />
                 </div>
