@@ -17,7 +17,8 @@ import {
   Trash2, Box, Info, Target, Lightbulb, Zap, HelpCircle, 
   FileText, LayoutGrid, BookOpen, Quote, PlusCircle, 
   GripVertical, Edit3, Check, X, FilePlus, Type, 
-  CheckSquare, HelpCircle as HelpIcon, Minus, PenTool
+  CheckSquare, HelpCircle as HelpIcon, Minus, PenTool,
+  Scissors
 } from 'lucide-react';
 
 interface WorksheetViewProps {
@@ -124,14 +125,12 @@ export const WorksheetView: React.FC<WorksheetViewProps> = ({ worksheet: initial
 
   const titleSizeClass = isPreschool ? 'text-4xl text-left' : (isCreative ? 'text-7xl text-center' : (isClassicProfessional ? (isMathMode ? 'text-4xl font-black uppercase tracking-tight' : 'text-base font-bold uppercase tracking-tight') : 'text-3xl font-black'));
   
-  // Refined question size and leading for Math Mode to prevent exponent/subscript overlap
   const questionSizeClass = isCreative 
     ? 'text-xl' 
     : (isClassicProfessional 
         ? `${isMathMode ? 'text-3xl font-mono leading-[3.5] tracking-widest py-4' : 'text-[11px] font-bold leading-relaxed'}` 
         : 'text-lg font-bold');
   
-  // Refined option size and leading for Math Mode
   const optionSizeClass = isCreative 
     ? 'text-lg' 
     : (isClassicProfessional 
@@ -158,7 +157,6 @@ export const WorksheetView: React.FC<WorksheetViewProps> = ({ worksheet: initial
     );
   };
 
-  // Components for manual adding
   const SidebarToolbox = () => (
     <div className="fixed left-4 top-1/2 -translate-y-1/2 w-64 bg-white shadow-2xl rounded-[2.5rem] p-6 border-4 border-slate-900 z-[100] no-print flex flex-col gap-4 animate-in slide-in-from-left-8">
       <div className="flex justify-between items-center mb-2">
@@ -191,7 +189,14 @@ export const WorksheetView: React.FC<WorksheetViewProps> = ({ worksheet: initial
     </div>
   );
 
-  const cutBorderStyle = "border-[0.5px] border-slate-300 border-dashed ring-[0.5px] ring-slate-100";
+  const cutBorderStyle = "border-[1px] border-slate-300 border-dashed relative";
+
+  const CutLineInstruction = () => (
+    <div className="absolute top-2 left-1/2 -translate-x-1/2 opacity-20 pointer-events-none no-print flex items-center gap-2">
+      <Scissors className="w-3 h-3" />
+      <span className="text-[8px] font-black uppercase tracking-widest">Cut along this line</span>
+    </div>
+  );
 
   if (isPreschool) {
     return (
@@ -212,6 +217,7 @@ export const WorksheetView: React.FC<WorksheetViewProps> = ({ worksheet: initial
           id="worksheet-content" 
           className={`max-w-[210mm] mx-auto bg-white p-[10mm] shadow-lg min-h-[297mm] relative transition-all duration-500 overflow-hidden font-handwriting-body flex flex-col ${cutBorderStyle}`}
         >
+          <CutLineInstruction />
           <DoodleCorner position="tl" />
           <DoodleCorner position="tr" />
           <DoodleCorner position="bl" />
@@ -280,7 +286,6 @@ export const WorksheetView: React.FC<WorksheetViewProps> = ({ worksheet: initial
     );
   }
 
-  // Classic/Creative View with Builder Mode
   return (
     <div className="relative">
       <div className="absolute top-0 right-full mr-8 no-print flex flex-col gap-4">
@@ -291,11 +296,6 @@ export const WorksheetView: React.FC<WorksheetViewProps> = ({ worksheet: initial
           {isBuilderMode ? <Check className="w-6 h-6" /> : <Edit3 className="w-6 h-6 text-yellow-500" />}
           {isBuilderMode ? 'Stop Building' : 'Build Manually'}
         </button>
-        {isBuilderMode && (
-          <div className="bg-white/80 backdrop-blur p-4 rounded-2xl border border-slate-100 shadow-sm">
-             <p className="text-[10px] font-black uppercase text-slate-400 text-center tracking-widest leading-tight">Builder Active<br/>Sidebar Ready</p>
-          </div>
-        )}
       </div>
 
       {isBuilderMode && <SidebarToolbox />}
@@ -312,6 +312,7 @@ export const WorksheetView: React.FC<WorksheetViewProps> = ({ worksheet: initial
         id="worksheet-content" 
         className={`max-w-[210mm] mx-auto bg-white ${isClassicProfessional ? 'p-[15mm]' : 'p-[12mm]'} shadow-lg min-h-[297mm] relative transition-all duration-500 ${isCreative ? 'font-handwriting-body' : 'font-sans'} ${cutBorderStyle}`}
       >
+        <CutLineInstruction />
         {placedDoodles.map(doodle => (
           <div key={doodle.id} className="absolute group z-50 cursor-move" style={{ left: `${doodle.x}%`, top: `${doodle.y}%`, width: '120px' }}>
             <img src={doodle.url} className="w-full h-full object-contain mix-blend-multiply opacity-60 group-hover:opacity-100 transition-opacity" />
@@ -363,9 +364,6 @@ export const WorksheetView: React.FC<WorksheetViewProps> = ({ worksheet: initial
                   <div className="h-20 flex items-center justify-center border-y-2 border-dashed border-slate-200 my-16 opacity-40">
                     <span className="font-black uppercase text-[10px] tracking-[0.5em] text-slate-400">Page Break</span>
                   </div>
-                  {isBuilderMode && (
-                    <button onClick={() => removeQuestion(q.id)} className="absolute top-1/2 -right-4 -translate-y-1/2 p-2 bg-red-100 text-red-500 rounded-full hover:bg-red-200 transition-all opacity-0 group-hover:opacity-100"><Trash2 className="w-4 h-4" /></button>
-                  )}
                 </div>
               );
             }

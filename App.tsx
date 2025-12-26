@@ -61,8 +61,7 @@ import {
   Clock,
   ChevronRight,
   PlusCircle,
-  RefreshCw,
-  MagicWand
+  RefreshCw
 } from 'lucide-react';
 
 const WorksheetSkeleton: React.FC<{ theme: ThemeType }> = ({ theme }) => {
