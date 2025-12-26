@@ -122,20 +122,25 @@ export const WorksheetView: React.FC<WorksheetViewProps> = ({ worksheet: initial
     return 'grid-cols-1';
   };
 
-  const titleSizeClass = isPreschool ? 'text-4xl text-left' : (isCreative ? 'text-7xl text-center' : (isClassicProfessional ? (isMathMode ? 'text-3xl font-black uppercase' : 'text-base font-bold uppercase tracking-tight') : 'text-3xl font-black'));
+  const titleSizeClass = isPreschool ? 'text-4xl text-left' : (isCreative ? 'text-7xl text-center' : (isClassicProfessional ? (isMathMode ? 'text-4xl font-black uppercase tracking-tight' : 'text-base font-bold uppercase tracking-tight') : 'text-3xl font-black'));
+  
+  // Refined question size and leading for Math Mode to prevent exponent/subscript overlap
   const questionSizeClass = isCreative 
     ? 'text-xl' 
     : (isClassicProfessional 
-        ? `${isMathMode ? 'text-3xl font-mono leading-[2.5] tracking-widest' : 'text-[11px] font-bold leading-relaxed'}` 
+        ? `${isMathMode ? 'text-3xl font-mono leading-[3.5] tracking-widest py-4' : 'text-[11px] font-bold leading-relaxed'}` 
         : 'text-lg font-bold');
+  
+  // Refined option size and leading for Math Mode
   const optionSizeClass = isCreative 
     ? 'text-lg' 
     : (isClassicProfessional 
-        ? `${isMathMode ? 'text-2xl font-mono leading-[3] tracking-widest' : 'text-[9.5px] leading-loose font-medium'}` 
+        ? `${isMathMode ? 'text-2xl font-mono leading-[3.5] tracking-widest' : 'text-[9.5px] leading-loose font-medium'}` 
         : 'text-sm');
-  const sectionSpacingClass = isClassicProfessional ? (isMathMode ? 'space-y-20' : 'space-y-4') : 'space-y-12';
-  const itemSpacingClass = isClassicProfessional ? (isMathMode ? 'space-y-16' : 'space-y-3') : 'space-y-10';
-  const headerPadding = isClassicProfessional ? (isMathMode ? 'pb-8 mb-12' : 'pb-1.5 mb-2.5') : 'pb-6 mb-10';
+        
+  const sectionSpacingClass = isClassicProfessional ? (isMathMode ? 'space-y-24' : 'space-y-4') : 'space-y-12';
+  const itemSpacingClass = isClassicProfessional ? (isMathMode ? 'space-y-20' : 'space-y-3') : 'space-y-10';
+  const headerPadding = isClassicProfessional ? (isMathMode ? 'pb-10 mb-16' : 'pb-1.5 mb-2.5') : 'pb-6 mb-10';
 
   const renderEditableText = (id: string, text: string, className: string, onUpdate: (val: string) => void) => {
     if (!isBuilderMode) return <p className={className}>{text}</p>;
@@ -152,11 +157,6 @@ export const WorksheetView: React.FC<WorksheetViewProps> = ({ worksheet: initial
       />
     );
   };
-
-  // Pre-filter items for standard views
-  const drillItems = worksheet.questions.filter(q => q.type === QuestionType.CHARACTER_DRILL || q.type === QuestionType.SENTENCE_DRILL);
-  const interactiveItems = worksheet.questions.filter(q => q.type === QuestionType.MCQ || q.type === QuestionType.TF);
-  const responseItems = worksheet.questions.filter(q => q.type === QuestionType.SHORT_ANSWER || q.type === QuestionType.VOCABULARY);
 
   // Components for manual adding
   const SidebarToolbox = () => (
@@ -177,7 +177,6 @@ export const WorksheetView: React.FC<WorksheetViewProps> = ({ worksheet: initial
           <Edit3 className="w-5 h-5 opacity-50 group-hover:opacity-100" /> Short Answer
         </button>
         <button onClick={() => addQuestion(QuestionType.SENTENCE_DRILL)} className="w-full flex items-center gap-3 p-3 bg-slate-50 hover:bg-purple-400 hover:text-white rounded-xl font-bold text-sm transition-all group">
-          {/* Fix: Added missing PenTool import to fix the "Cannot find name 'PenTool'" error */}
           <PenTool className="w-5 h-5 opacity-50 group-hover:opacity-100" /> Handwriting Row
         </button>
         <div className="h-[2px] bg-slate-100 my-4"></div>
@@ -356,8 +355,6 @@ export const WorksheetView: React.FC<WorksheetViewProps> = ({ worksheet: initial
 
         <div className={`relative z-10 px-0 ${sectionSpacingClass} mt-8`}>
           {worksheet.questions.map((q, idx) => {
-            const isManualItem = isBuilderMode;
-            
             if (q.type === QuestionType.PAGE_BREAK) {
               return (
                 <div key={q.id} className="relative group no-print">
@@ -372,24 +369,24 @@ export const WorksheetView: React.FC<WorksheetViewProps> = ({ worksheet: initial
             }
 
             return (
-              <div key={q.id} className={`flex flex-col relative group ${isMathMode ? 'gap-10 mb-8' : 'gap-4'}`}>
+              <div key={q.id} className={`flex flex-col relative group ${isMathMode ? 'gap-12 mb-12' : 'gap-4'}`}>
                 {isBuilderMode && (
                   <div className="absolute -left-12 top-0 h-full flex flex-col gap-2 no-print opacity-0 group-hover:opacity-100 transition-opacity">
                      <button onClick={() => removeQuestion(q.id)} className="p-2 bg-red-100 text-red-500 rounded-full hover:bg-red-200 transition-all"><Trash2 className="w-4 h-4" /></button>
                   </div>
                 )}
 
-                <div className="flex items-start gap-4">
-                  <span className={`font-bold text-slate-900 ${isClassicProfessional ? (isMathMode ? 'text-3xl' : 'text-[11px]') : 'text-lg'}`}>{idx + 1}.</span>
+                <div className={`flex items-start gap-4 ${isMathMode ? 'mb-4' : ''}`}>
+                  <span className={`font-bold text-slate-900 ${isClassicProfessional ? (isMathMode ? 'text-4xl' : 'text-[11px]') : 'text-lg'}`}>{idx + 1}.</span>
                   {renderEditableText(q.id, q.question, questionSizeClass, (v) => updateQuestionText(q.id, v))}
                 </div>
 
                 <div className="ml-12">
                   {q.type === QuestionType.MCQ && (
-                    <div className={`grid ${isMathMode ? 'gap-10 mt-6' : 'gap-1.5'} ${getMcqGridCols(q.options)}`}>
+                    <div className={`grid ${isMathMode ? 'gap-12 mt-8' : 'gap-1.5'} ${getMcqGridCols(q.options)}`}>
                       {q.options?.map((opt, i) => (
-                        <div key={i} className={`flex items-center gap-4 p-2 group ${isMathMode ? 'border-b border-slate-100 py-4' : ''}`}>
-                          <div className={`border border-slate-900 rounded-none ${isMathMode ? 'w-6 h-6 flex-shrink-0' : 'w-2.5 h-2.5'}`}></div>
+                        <div key={i} className={`flex items-center gap-6 p-2 group ${isMathMode ? 'border-b border-slate-100 py-6' : ''}`}>
+                          <div className={`border border-slate-900 rounded-none ${isMathMode ? 'w-10 h-10 flex-shrink-0' : 'w-2.5 h-2.5'}`}></div>
                           {isBuilderMode ? (
                             <input 
                               className={`${optionSizeClass} bg-slate-50 border-b border-slate-200 outline-none w-full`}
@@ -403,23 +400,23 @@ export const WorksheetView: React.FC<WorksheetViewProps> = ({ worksheet: initial
                   )}
 
                   {q.type === QuestionType.TF && (
-                    <div className="flex gap-12 mt-4">
-                       <div className="flex items-center gap-3">
-                          <div className="w-5 h-5 border-2 border-slate-900 rounded-lg"></div>
+                    <div className={`flex gap-16 ${isMathMode ? 'mt-10' : 'mt-4'}`}>
+                       <div className="flex items-center gap-4">
+                          <div className={`border-2 border-slate-900 rounded-lg ${isMathMode ? 'w-10 h-10' : 'w-5 h-5'}`}></div>
                           <span className={`${optionSizeClass} font-black uppercase tracking-widest`}>True</span>
                        </div>
-                       <div className="flex items-center gap-3">
-                          <div className="w-5 h-5 border-2 border-slate-900 rounded-lg"></div>
+                       <div className="flex items-center gap-4">
+                          <div className={`border-2 border-slate-900 rounded-lg ${isMathMode ? 'w-10 h-10' : 'w-5 h-5'}`}></div>
                           <span className={`${optionSizeClass} font-black uppercase tracking-widest`}>False</span>
                        </div>
                     </div>
                   )}
 
                   {(q.type === QuestionType.SHORT_ANSWER || q.type === QuestionType.VOCABULARY) && (
-                    <div className={`mt-4 ${isMathMode ? 'min-h-[200px]' : 'min-h-[100px]'} border-l-2 border-slate-100 relative`}>
-                       <div className={`${isMathMode ? 'space-y-16' : 'space-y-6'}`}>
-                          {[...Array(isMathMode ? 3 : 4)].map((_, i) => (
-                            <div key={i} className={`border-b border-slate-200 ${isMathMode ? 'h-16' : 'h-6'}`}></div>
+                    <div className={`${isMathMode ? 'mt-10 min-h-[300px]' : 'mt-4 min-h-[100px]'} border-l-2 border-slate-100 relative`}>
+                       <div className={`${isMathMode ? 'space-y-24' : 'space-y-6'}`}>
+                          {[...Array(isMathMode ? 4 : 4)].map((_, i) => (
+                            <div key={i} className={`border-b border-slate-200 ${isMathMode ? 'h-24' : 'h-6'}`}></div>
                           ))}
                        </div>
                     </div>
@@ -428,8 +425,8 @@ export const WorksheetView: React.FC<WorksheetViewProps> = ({ worksheet: initial
                   {(q.type === QuestionType.SENTENCE_DRILL) && (
                     <div className="mt-4">
                        <DraggableLineRow text={q.correctAnswer} isSmall={isMathMode} showTraceButton={true} />
-                       <div className="mt-4 space-y-4">
-                          {[...Array(3)].map((_, i) => <div key={i} className="h-6 border-b border-dashed border-slate-300 w-full opacity-30"></div>)}
+                       <div className={`mt-6 ${isMathMode ? 'space-y-24' : 'space-y-4'}`}>
+                          {[...Array(3)].map((_, i) => <div key={i} className={`${isMathMode ? 'h-24' : 'h-6'} border-b border-dashed border-slate-300 w-full opacity-30`}></div>)}
                        </div>
                     </div>
                   )}
