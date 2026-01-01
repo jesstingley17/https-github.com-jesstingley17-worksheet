@@ -232,8 +232,8 @@ export const WorksheetView: React.FC<WorksheetViewProps> = ({ worksheet: initial
                 <div className="w-80 border-b-2 border-slate-900 h-8"></div>
               </div>
               <div className="flex flex-col">
-                <span className="text-[10px] font-black uppercase text-slate-400">Grade Level: <span className="text-slate-900">{worksheet.educationalLevel}</span></span>
-                <div className="w-48 border-b-2 border-slate-900 h-8"></div>
+                <span className="text-sm font-black uppercase text-slate-800">Grade Level: <MarkerHighlight>{worksheet.educationalLevel}</MarkerHighlight></span>
+                <div className="w-48 border-b-2 border-slate-900 h-2 mt-2"></div>
               </div>
             </div>
             <div className="text-right">
@@ -327,46 +327,56 @@ export const WorksheetView: React.FC<WorksheetViewProps> = ({ worksheet: initial
             <div className="flex justify-between items-start">
               <div className="flex-1">
                 {renderEditableText('title', worksheet.title || "Academic Assessment", `${isCreative ? 'font-handwriting-header' : 'font-sans text-left outline-none'} ${titleSizeClass} text-slate-900 leading-tight`, (v) => setWorksheet(p => ({...p, title: v})))}
+                <div className="mt-4">
+                   <div className="inline-flex items-center gap-2 px-4 py-2 bg-slate-100 border-2 border-slate-900 rounded-none transform -rotate-1 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Academic Grade</span>
+                      <span className="text-sm font-black text-slate-900">{worksheet.educationalLevel}</span>
+                   </div>
+                </div>
               </div>
-              <div className="ml-8 w-24 h-24 border-4 border-slate-900 rounded-2xl flex flex-col items-center justify-center bg-slate-50 shadow-inner">
-                <span className="text-[8px] font-black uppercase text-slate-400">Total Score</span>
-                <span className="text-2xl font-black text-slate-900 mt-1">/ 100</span>
+              <div className="ml-8 w-28 h-28 border-4 border-slate-900 rounded-none flex flex-col items-center justify-center bg-white shadow-[8px_8px_0px_0px_rgba(0,0,0,0.1)]">
+                <span className="text-[10px] font-black uppercase text-slate-400">Mark / Grade</span>
+                <div className="text-3xl font-black text-slate-900 mt-1 flex items-baseline">
+                   <span className="opacity-10">____</span>
+                   <span className="mx-1 text-sm opacity-30">/</span>
+                   <span className="text-sm">100</span>
+                </div>
               </div>
             </div>
             
-            <div className={`flex justify-between items-center ${isClassicProfessional ? 'mt-1' : 'mt-6'} px-0`}>
+            <div className={`flex justify-between items-center ${isClassicProfessional ? 'mt-4' : 'mt-8'} px-0`}>
               <div className="flex items-center gap-4">
                 <div className={`px-1.5 py-0.5 text-[7.5px] font-bold tracking-widest uppercase border border-slate-800`}>
-                  Assessment Ref: TM-V2.5-{worksheet.id?.slice(-6) || 'BUILDER'}
+                  ID: TM-{worksheet.id?.slice(-6).toUpperCase() || 'CORE'}
                 </div>
                 <HelenCharacter />
               </div>
               <div className="text-right flex flex-col items-end gap-0">
-                <div className="text-[7.5px] font-bold uppercase tracking-tight text-slate-500">
-                  Module: <span className="text-slate-900">{worksheet.topic}</span>
+                <div className="text-[8px] font-black uppercase tracking-tight text-slate-400">
+                  Topic: <span className="text-slate-900">{worksheet.topic}</span>
                 </div>
-                <div className="text-[7.5px] font-bold uppercase tracking-tight text-slate-500">
-                  Grade Level: <span className="text-slate-900">{worksheet.educationalLevel}</span>
+                <div className="text-[8px] font-black uppercase tracking-tight text-slate-400">
+                  Document Standard: <span className="text-slate-900">A4 ISO 216</span>
                 </div>
               </div>
             </div>
 
-            <div className={`${isClassicProfessional ? 'mt-2' : 'mt-8'} flex justify-between items-end pt-1`}>
+            <div className={`${isClassicProfessional ? 'mt-4' : 'mt-10'} flex justify-between items-end pt-1`}>
                <div className="flex flex-col gap-0 w-2/3">
-                  <span className="text-[6.5px] uppercase font-bold text-slate-500 tracking-tighter">Candidate Full Name</span>
-                  <div className={`w-full border-b border-slate-400 pb-0.5 text-slate-300 ${isClassicProfessional ? 'text-[9.5px]' : 'text-sm'} font-medium`}>
-                     {showKey ? <span className="text-red-500 font-bold uppercase not-italic">TEACHER COPY - INTERNAL USE ONLY</span> : "________________________________________________________________________"}
+                  <span className="text-[7.5px] uppercase font-black text-slate-500 tracking-widest">Student Full Name (Legal Caps)</span>
+                  <div className={`w-full border-b-2 border-slate-900 pb-0.5 text-slate-300 ${isClassicProfessional ? 'text-sm' : 'text-lg'} font-bold`}>
+                     {showKey ? <span className="text-red-500 font-black uppercase">OFFICIAL MASTER ANSWER KEY</span> : "______________________________________________________"}
                   </div>
                </div>
                <div className="flex flex-col gap-0 w-1/4">
-                  <span className="text-[6.5px] uppercase font-bold text-slate-500 tracking-tighter">Submission Date</span>
-                  <div className={`w-full border-b border-slate-400 pb-0.5 text-slate-300 ${isClassicProfessional ? 'text-[9.5px]' : 'text-sm'}`}>____ / ____ / 20__</div>
+                  <span className="text-[7.5px] uppercase font-black text-slate-500 tracking-widest">Exam Date</span>
+                  <div className={`w-full border-b-2 border-slate-900 pb-0.5 text-slate-300 ${isClassicProfessional ? 'text-sm' : 'text-lg'} font-bold`}>____ / ____ / 20__</div>
                </div>
             </div>
           </div>
         )}
 
-        <div className={`relative z-10 px-0 ${sectionSpacingClass} mt-8`}>
+        <div className={`relative z-10 px-0 ${sectionSpacingClass} mt-12`}>
           {worksheet.questions.map((q, idx) => {
             if (q.type === QuestionType.PAGE_BREAK) {
               return (
@@ -388,20 +398,22 @@ export const WorksheetView: React.FC<WorksheetViewProps> = ({ worksheet: initial
 
                 <div className={`flex items-start gap-4 ${isMathMode ? 'mb-4' : ''}`}>
                   <div className="flex-1 flex items-start gap-4">
-                    <span className={`font-bold text-slate-900 ${isClassicProfessional ? (isMathMode ? 'text-4xl' : 'text-[11px]') : 'text-lg'}`}>{idx + 1}.</span>
+                    <div className="w-10 h-10 bg-slate-900 text-white flex items-center justify-center font-black text-sm rounded-none transform rotate-3 flex-shrink-0">
+                      {idx + 1}
+                    </div>
                     {renderEditableText(q.id, q.question, questionSizeClass, (v) => updateQuestionText(q.id, v))}
                   </div>
                   <ScoreBox />
                 </div>
 
-                <div className="ml-12">
+                <div className="ml-14">
                   {q.type === QuestionType.MCQ && (
                     <div className={`grid ${isMathMode ? 'gap-12 mt-8' : 'gap-1.5'} ${getMcqGridCols(q.options)}`}>
                       {q.options?.map((opt, i) => {
                         const isCorrectOption = opt === q.correctAnswer;
                         return (
                           <div key={i} className={`flex items-center gap-6 p-2 group transition-all ${isMathMode ? 'border-b border-slate-100 py-6' : ''} ${showKey && isCorrectOption ? 'bg-red-50/50 rounded-lg ring-1 ring-red-100 scale-[1.02]' : ''}`}>
-                            <div className={`border border-slate-900 rounded-none flex items-center justify-center transition-colors ${isMathMode ? 'w-10 h-10 flex-shrink-0' : 'w-2.5 h-2.5'} ${showKey && isCorrectOption ? 'border-red-600 bg-red-600' : ''}`}>
+                            <div className={`border-2 border-slate-900 rounded-none flex items-center justify-center transition-colors ${isMathMode ? 'w-10 h-10 flex-shrink-0' : 'w-4 h-4'} ${showKey && isCorrectOption ? 'border-red-600 bg-red-600' : ''}`}>
                               {showKey && isCorrectOption && <Check className="text-white w-full h-full p-0.5" />}
                             </div>
                             {isBuilderMode ? (
@@ -413,7 +425,6 @@ export const WorksheetView: React.FC<WorksheetViewProps> = ({ worksheet: initial
                             ) : (
                               <span className={`${optionSizeClass} ${showKey && isCorrectOption ? 'text-red-700 font-black' : ''}`}>
                                 {opt}
-                                {showKey && isCorrectOption && <span className="ml-2 text-[8px] uppercase tracking-tighter text-red-400 font-bold opacity-60">(Key)</span>}
                               </span>
                             )}
                           </div>
@@ -425,13 +436,13 @@ export const WorksheetView: React.FC<WorksheetViewProps> = ({ worksheet: initial
                   {q.type === QuestionType.TF && (
                     <div className={`flex gap-16 ${isMathMode ? 'mt-10' : 'mt-4'}`}>
                        <div className={`flex items-center gap-4 transition-all ${showKey && q.correctAnswer === 'True' ? 'bg-red-50 p-2 rounded-xl ring-1 ring-red-100' : ''}`}>
-                          <div className={`border-2 border-slate-900 rounded-lg flex items-center justify-center ${isMathMode ? 'w-10 h-10' : 'w-5 h-5'} ${showKey && q.correctAnswer === 'True' ? 'border-red-600 bg-red-600' : ''}`}>
+                          <div className={`border-2 border-slate-900 rounded-none flex items-center justify-center ${isMathMode ? 'w-10 h-10' : 'w-6 h-6'} ${showKey && q.correctAnswer === 'True' ? 'border-red-600 bg-red-600' : ''}`}>
                             {showKey && q.correctAnswer === 'True' && <Check className="text-white w-full h-full p-1" />}
                           </div>
                           <span className={`${optionSizeClass} font-black uppercase tracking-widest ${showKey && q.correctAnswer === 'True' ? 'text-red-700' : ''}`}>True</span>
                        </div>
                        <div className={`flex items-center gap-4 transition-all ${showKey && q.correctAnswer === 'False' ? 'bg-red-50 p-2 rounded-xl ring-1 ring-red-100' : ''}`}>
-                          <div className={`border-2 border-slate-900 rounded-lg flex items-center justify-center ${isMathMode ? 'w-10 h-10' : 'w-5 h-5'} ${showKey && q.correctAnswer === 'False' ? 'border-red-600 bg-red-600' : ''}`}>
+                          <div className={`border-2 border-slate-900 rounded-none flex items-center justify-center ${isMathMode ? 'w-10 h-10' : 'w-6 h-6'} ${showKey && q.correctAnswer === 'False' ? 'border-red-600 bg-red-600' : ''}`}>
                             {showKey && q.correctAnswer === 'False' && <Check className="text-white w-full h-full p-1" />}
                           </div>
                           <span className={`${optionSizeClass} font-black uppercase tracking-widest ${showKey && q.correctAnswer === 'False' ? 'text-red-700' : ''}`}>False</span>
@@ -441,9 +452,9 @@ export const WorksheetView: React.FC<WorksheetViewProps> = ({ worksheet: initial
 
                   {(q.type === QuestionType.SHORT_ANSWER || q.type === QuestionType.VOCABULARY) && (
                     <div className={`${isMathMode ? 'mt-10 min-h-[300px]' : 'mt-4 min-h-[100px]'} border-l-2 border-slate-100 relative`}>
-                       <div className={`${isMathMode ? 'space-y-24' : 'space-y-6'}`}>
+                       <div className={`${isMathMode ? 'space-y-24' : 'space-y-8'}`}>
                           {[...Array(isMathMode ? 4 : 4)].map((_, i) => (
-                            <div key={i} className={`border-b border-slate-200 ${isMathMode ? 'h-24' : 'h-6'} relative`}>
+                            <div key={i} className={`border-b border-slate-200 ${isMathMode ? 'h-24' : 'h-8'} relative`}>
                               {showKey && i === 0 && (
                                 <span className="absolute left-4 bottom-1 font-handwriting-body text-red-600 text-2xl font-black drop-shadow-sm animate-in fade-in slide-in-from-left-2">
                                   {q.correctAnswer}
@@ -458,9 +469,9 @@ export const WorksheetView: React.FC<WorksheetViewProps> = ({ worksheet: initial
                   {(q.type === QuestionType.SENTENCE_DRILL) && (
                     <div className="mt-4">
                        <DraggableLineRow text={q.correctAnswer} isSmall={isMathMode} showTraceButton={true} />
-                       <div className={`mt-6 ${isMathMode ? 'space-y-24' : 'space-y-4'}`}>
+                       <div className={`mt-6 ${isMathMode ? 'space-y-24' : 'space-y-6'}`}>
                           {[...Array(2)].map((_, i) => (
-                            <div key={i} className={`${isMathMode ? 'h-24' : 'h-6'} border-b border-dashed border-slate-300 w-full opacity-30 relative`}>
+                            <div key={i} className={`${isMathMode ? 'h-24' : 'h-8'} border-b border-dashed border-slate-300 w-full opacity-30 relative`}>
                               {showKey && i === 0 && (
                                 <span className="absolute left-8 bottom-1 font-handwriting-body text-red-600 text-2xl font-black opacity-80 animate-in fade-in">
                                   {q.correctAnswer}
@@ -477,16 +488,15 @@ export const WorksheetView: React.FC<WorksheetViewProps> = ({ worksheet: initial
           })}
         </div>
 
-        <div className="mt-auto pt-8 relative z-10 opacity-40">
-          <div className="flex justify-between items-end border-t border-slate-800 pt-1.5 font-sans">
-            <div className="flex gap-10 font-bold text-[7px] text-slate-600 uppercase tracking-tighter">
-              <span>Classified Academic Material</span>
-              <span>Classification: {worksheet.educationalLevel}</span>
-              <span>Topic Reference: {worksheet.topic}</span>
+        <div className="mt-auto pt-16 relative z-10 opacity-40">
+          <div className="flex justify-between items-end border-t-4 border-slate-900 pt-4 font-sans">
+            <div className="flex gap-10 font-black text-[9px] text-slate-800 uppercase tracking-widest">
+              <span>Official Academic Record</span>
+              <span>Level: {worksheet.educationalLevel}</span>
+              <span>Ref: {worksheet.topic.slice(0, 15)}</span>
             </div>
             <div className="text-right space-y-0">
-              <div className="text-[5.5px] font-black uppercase tracking-widest text-slate-900">Document Engine: TM-SYNTHESIS-V2.5</div>
-              <div className="text-[6.5px] font-bold text-slate-500 uppercase">A4 PHYSICAL FIDELITY PRINT-READY</div>
+               <span className="text-[10px] font-black uppercase text-slate-900">Generated by Teach in Minutes V2.5</span>
             </div>
           </div>
         </div>

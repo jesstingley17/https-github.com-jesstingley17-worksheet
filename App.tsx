@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { AppMode, Worksheet, ThemeType, QuestionType, VariationLevel } from './types';
 import { generateWorksheet, generateTopicScopeSuggestion, analyzeSourceMaterial, refineSourceText } from './services/geminiService';
@@ -427,8 +428,9 @@ const App: React.FC = () => {
                 <div className="max-w-5xl mx-auto pt-8">
                   <div className="text-center mb-10"><h2 className="font-handwriting-header text-5xl sm:text-7xl text-slate-800 mb-4">Teach in <MarkerHighlight>Minutes</MarkerHighlight></h2><div className="flex items-center justify-center gap-3 mt-10">
                     {[1, 2, 3, 4].map((s: number) => (
-                      <div key={s} className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-sm border-2 ${currentStep === s ? 'bg-yellow-400 border-yellow-400 text-white shadow-xl scale-110' : currentStep > s ? 'bg-green-500 border-green-500 text-white' : 'bg-white border-slate-200 text-slate-300'}`}>
-                        {currentStep > s ? <CheckCircle2 className="w-6 h-6" /> : s}
+                      <div key={s} className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-sm border-2 ${Number(currentStep) === s ? 'bg-yellow-400 border-yellow-400 text-white shadow-xl scale-110' : Number(currentStep) > s ? 'bg-green-500 border-green-500 text-white' : 'bg-white border-slate-200 text-slate-300'}`}>
+                        {/* Cast currentStep to number to ensure type safety in comparison */}
+                        {Number(currentStep) > s ? <CheckCircle2 className="w-6 h-6" /> : s}
                       </div>
                     ))}
                   </div></div>
@@ -436,55 +438,96 @@ const App: React.FC = () => {
                     <div className="flex-1 p-8 sm:p-12">
                       {currentStep === 1 && (
                         <div className="animate-in slide-in-from-right duration-500 h-full flex flex-col justify-center items-center gap-8">
-                          <h3 className="text-3xl font-black text-slate-800">1. Scan Source Material</h3>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 w-full max-w-2xl"><div onClick={() => fileInputRef.current?.click()} className="border-4 border-dashed border-slate-100 rounded-[2.5rem] p-12 text-center hover:border-yellow-200 transition-all cursor-pointer group bg-slate-50/50 flex flex-col items-center"><input type="file" ref={fileInputRef} className="hidden" accept="image/*,application/pdf" onChange={handleFileChange} /><Upload className="w-12 h-12 text-yellow-500 mb-4 group-hover:scale-110 transition-transform" /><p className="font-bold text-slate-700">Browse Files</p></div><div onClick={() => setIsCameraActive(true)} className="border-4 border-dashed border-slate-100 rounded-[2.5rem] p-12 text-center hover:border-yellow-200 transition-all cursor-pointer group bg-slate-50/50 flex flex-col items-center"><Camera className="w-12 h-12 text-blue-500 mb-4 group-hover:scale-110 transition-transform" /><p className="font-bold text-slate-700">Live Camera</p></div></div>
-                          <div className="mt-8 flex flex-col items-center gap-4"><div className="flex items-center gap-3 text-slate-300"><div className="h-[1px] w-20 bg-current"></div><span className="font-black text-xs uppercase tracking-widest">Or Start Fresh</span><div className="h-[1px] w-20 bg-current"></div></div><button onClick={startWithBlankSheet} className="flex items-center gap-3 px-8 py-4 bg-slate-900 text-white rounded-2xl font-black hover:bg-slate-800 transition-all shadow-xl active:scale-95 group"><PlusCircle className="w-6 h-6 text-yellow-400 group-hover:rotate-90 transition-transform" /> Start with Blank Sheet</button></div>
-                          {isCameraActive && (<div className="fixed inset-0 bg-black/90 z-[200] flex flex-col items-center justify-center p-4"><video ref={videoRef} autoPlay playsInline className="max-w-full max-h-[70vh] rounded-3xl border-4 border-white/20" /><div className="mt-8 flex gap-4"><button onClick={capturePhoto} className="w-20 h-20 bg-white rounded-full flex items-center justify-center shadow-2xl active:scale-90"><div className="w-16 h-16 border-4 border-slate-900 rounded-full"></div></button><button onClick={() => setIsCameraActive(false)} className="w-20 h-20 bg-red-500 text-white rounded-full flex items-center justify-center shadow-2xl"><X className="w-10 h-10" /></button></div><canvas ref={canvasRef} className="hidden" /></div>)}
-                          {fileData && (<div className="p-4 bg-green-50 text-green-700 rounded-2xl flex items-center gap-2 font-bold animate-in zoom-in"><CheckCircle2 className="w-5 h-5" /> {fileData.name} loaded.</div>)}
+                          <h3 className="text-3xl font-black text-slate-800">1. Target Audience</h3>
+                          <div className="w-full max-w-2xl grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="p-6 bg-slate-50 rounded-3xl border-2 border-slate-100 space-y-4">
+                              <label className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest"><Award className="w-4 h-4" /> Educational Level</label>
+                              <select 
+                                className="w-full p-4 rounded-xl bg-white border-2 border-slate-200 focus:border-blue-500 outline-none font-bold text-slate-700"
+                                value={formData.educationalLevel}
+                                onChange={(e) => setFormData({...formData, educationalLevel: e.target.value})}
+                              >
+                                {educationalLevels.map(lvl => <option key={lvl} value={lvl}>{lvl}</option>)}
+                              </select>
+                            </div>
+                            <div className="p-6 bg-slate-50 rounded-3xl border-2 border-slate-100 space-y-4">
+                              <label className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest"><BarChart className="w-4 h-4" /> Assessment Difficulty</label>
+                              <select 
+                                className="w-full p-4 rounded-xl bg-white border-2 border-slate-200 focus:border-blue-500 outline-none font-bold text-slate-700"
+                                value={formData.difficulty}
+                                onChange={(e) => setFormData({...formData, difficulty: e.target.value})}
+                              >
+                                {difficulties.map(d => <option key={d} value={d}>{d}</option>)}
+                              </select>
+                            </div>
+                            <div className="p-6 bg-slate-50 rounded-3xl border-2 border-slate-100 space-y-4 md:col-span-2">
+                              <label className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest"><Globe className="w-4 h-4" /> Instruction Language</label>
+                              <select 
+                                className="w-full p-4 rounded-xl bg-white border-2 border-slate-200 focus:border-blue-500 outline-none font-bold text-slate-700"
+                                value={formData.language}
+                                onChange={(e) => setFormData({...formData, language: e.target.value})}
+                              >
+                                {languages.map(l => <option key={l} value={l}>{l}</option>)}
+                              </select>
+                            </div>
+                          </div>
+                          <p className="text-xs text-slate-400 font-medium italic text-center max-w-lg">Setting the grade level first helps the AI tailor the vocabulary and cognitive depth of generated questions.</p>
                         </div>
                       )}
                       {currentStep === 2 && (
-                        <div className="animate-in slide-in-from-right duration-500 h-full flex flex-col gap-6 relative">
-                          <div className="flex justify-between items-center">
-                            <h3 className="text-3xl font-black text-slate-800">2. Text Integration</h3>
-                            <button 
-                              onClick={handleRefineText}
-                              disabled={isRefining || !formData.rawText.trim()}
-                              className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-xs uppercase tracking-widest transition-all ${isRefining ? 'bg-slate-100 text-slate-400' : 'bg-blue-50 text-blue-600 hover:bg-blue-100 active:scale-95'}`}
-                            >
-                              {isRefining ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                              Magic Refine
-                            </button>
+                        <div className="animate-in slide-in-from-right duration-500 h-full flex flex-col justify-center items-center gap-8">
+                          <h3 className="text-3xl font-black text-slate-800">2. Input Material</h3>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 w-full max-w-2xl">
+                            <div onClick={() => fileInputRef.current?.click()} className="border-4 border-dashed border-slate-100 rounded-[2.5rem] p-12 text-center hover:border-yellow-200 transition-all cursor-pointer group bg-slate-50/50 flex flex-col items-center">
+                              <input type="file" ref={fileInputRef} className="hidden" accept="image/*,application/pdf" onChange={handleFileChange} />
+                              <Upload className="w-12 h-12 text-yellow-500 mb-4 group-hover:scale-110 transition-transform" />
+                              <p className="font-bold text-slate-700">Scan Textbook/Doc</p>
+                            </div>
+                            <div onClick={() => setIsCameraActive(true)} className="border-4 border-dashed border-slate-100 rounded-[2.5rem] p-12 text-center hover:border-yellow-200 transition-all cursor-pointer group bg-slate-50/50 flex flex-col items-center">
+                              <Camera className="w-12 h-12 text-blue-500 mb-4 group-hover:scale-110 transition-transform" />
+                              <p className="font-bold text-slate-700">Live Snap</p>
+                            </div>
                           </div>
-                          <textarea 
-                            className="flex-1 w-full p-8 rounded-[2rem] bg-slate-50 border-2 border-slate-100 focus:border-yellow-400 focus:bg-white outline-none font-medium text-xl resize-none" 
-                            placeholder="Paste textbook text or additional context here..." 
-                            value={formData.rawText} 
-                            onChange={(e) => setFormData({...formData, rawText: e.target.value})} 
-                          />
+                          <div className="w-full max-w-2xl relative">
+                            <textarea 
+                              className="w-full p-6 h-40 rounded-3xl bg-slate-50 border-2 border-slate-100 focus:border-yellow-400 focus:bg-white outline-none font-medium resize-none shadow-inner" 
+                              placeholder="Or paste text directly here..." 
+                              value={formData.rawText} 
+                              onChange={(e) => setFormData({...formData, rawText: e.target.value})} 
+                            />
+                            {formData.rawText && (
+                              <button 
+                                onClick={handleRefineText}
+                                className="absolute bottom-4 right-4 bg-white px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest text-blue-600 shadow-lg flex items-center gap-2 hover:bg-blue-50 transition-all active:scale-95"
+                              >
+                                {isRefining ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                                AI Refine
+                              </button>
+                            )}
+                          </div>
                         </div>
                       )}
                       {currentStep === 3 && (
                         <div className="animate-in slide-in-from-right duration-500 h-full flex flex-col gap-8">
-                          <h3 className="text-3xl font-black text-slate-800">3. Define Scope</h3>
+                          <h3 className="text-3xl font-black text-slate-800">3. Title & Topic Scope</h3>
                           <div className="space-y-6">
                             <div>
                               <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2 ml-2">Display Title</label>
-                              <input className="w-full p-6 rounded-2xl bg-slate-50 border-2 border-slate-100 focus:border-yellow-400 outline-none font-bold text-xl" value={formData.customTitle} onChange={(e) => setFormData({...formData, customTitle: e.target.value})} placeholder="e.g. Calculus: Derivative Rules" />
+                              <input className="w-full p-6 rounded-2xl bg-slate-50 border-2 border-slate-100 focus:border-yellow-400 outline-none font-bold text-xl" value={formData.customTitle} onChange={(e) => setFormData({...formData, customTitle: e.target.value})} placeholder="e.g. History of the Industrial Revolution" />
                             </div>
                             <div>
                               <div className="flex justify-between items-end mb-2 ml-2">
-                                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest">Topic Focus</label>
+                                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest">Target Concepts</label>
                                 <button 
                                   onClick={handleSuggestScope}
                                   disabled={isGeneratingScope || !formData.customTitle.trim()}
                                   className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-blue-500 hover:text-blue-700 transition-colors disabled:opacity-30"
                                 >
                                   {isGeneratingScope ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
-                                  Suggest Scope
+                                  AI Suggest
                                 </button>
                               </div>
-                              <textarea className="w-full p-6 h-40 rounded-2xl bg-slate-50 border-2 border-slate-100 focus:border-yellow-400 outline-none font-medium text-xl" value={formData.topic} onChange={(e) => setFormData({...formData, topic: e.target.value})} placeholder="What should the sheet focus on?" />
+                              <textarea className="w-full p-6 h-40 rounded-2xl bg-slate-50 border-2 border-slate-100 focus:border-yellow-400 outline-none font-medium text-xl shadow-inner" value={formData.topic} onChange={(e) => setFormData({...formData, topic: e.target.value})} placeholder="Detail the sub-topics to focus on..." />
                             </div>
                           </div>
                         </div>
@@ -492,9 +535,9 @@ const App: React.FC = () => {
                       {currentStep === 4 && (
                         <div className="animate-in slide-in-from-right duration-500 h-full flex flex-col gap-8">
                            <div className="flex items-center justify-between">
-                             <h3 className="text-3xl font-black text-slate-800">4. Specification</h3>
-                             <div className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-widest px-4 py-2 bg-slate-50 rounded-full">
-                               <Dices className="w-4 h-4 text-blue-500" /> AI Variation Control Enabled
+                             <h3 className="text-3xl font-black text-slate-800">4. Question Inventory</h3>
+                             <div className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-widest px-4 py-2 bg-slate-50 rounded-full border border-slate-100">
+                               <Award className="w-4 h-4 text-yellow-500" /> {formData.educationalLevel}
                              </div>
                            </div>
                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -542,43 +585,7 @@ const App: React.FC = () => {
                                  </div>
                               </div>
                               <div className="space-y-6">
-                                 <div className="p-8 bg-white rounded-[2.5rem] border-2 border-slate-100 shadow-sm space-y-6">
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                                      <div className="space-y-2">
-                                        <label className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1"><Award className="w-3 h-3" /> Academic Level</label>
-                                        <select 
-                                          className="w-full p-4 rounded-xl bg-slate-50 border-2 border-transparent focus:border-blue-400 focus:bg-white outline-none font-bold text-slate-700 text-sm transition-all"
-                                          value={formData.educationalLevel}
-                                          onChange={(e) => setFormData({...formData, educationalLevel: e.target.value})}
-                                        >
-                                          {educationalLevels.map(lvl => <option key={lvl} value={lvl}>{lvl}</option>)}
-                                        </select>
-                                      </div>
-                                      <div className="space-y-2">
-                                        <label className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1"><BarChart className="w-3 h-3" /> Difficulty</label>
-                                        <select 
-                                          className="w-full p-4 rounded-xl bg-slate-50 border-2 border-transparent focus:border-blue-400 focus:bg-white outline-none font-bold text-slate-700 text-sm transition-all"
-                                          value={formData.difficulty}
-                                          onChange={(e) => setFormData({...formData, difficulty: e.target.value})}
-                                        >
-                                          {difficulties.map(d => <option key={d} value={d}>{d}</option>)}
-                                        </select>
-                                      </div>
-                                    </div>
-
-                                    <div className="space-y-2">
-                                      <label className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1"><Globe className="w-3 h-3" /> Content Language</label>
-                                      <select 
-                                        className="w-full p-4 rounded-xl bg-slate-50 border-2 border-transparent focus:border-blue-400 focus:bg-white outline-none font-bold text-slate-700 text-sm transition-all"
-                                        value={formData.language}
-                                        onChange={(e) => setFormData({...formData, language: e.target.value})}
-                                      >
-                                        {languages.map(l => <option key={l} value={l}>{l}</option>)}
-                                      </select>
-                                    </div>
-
-                                    <div className="h-[2px] bg-slate-50"></div>
-
+                                 <div className="p-8 bg-white rounded-[2.5rem] border-2 border-slate-100 shadow-sm space-y-6 h-fit">
                                     <div className="flex items-center justify-between">
                                        <div className="flex items-center gap-3">
                                           <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-md transition-colors ${isMathMode ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-400'}`}><Sigma className="w-6 h-6" /></div>
@@ -594,19 +601,20 @@ const App: React.FC = () => {
                                           <div className={`absolute top-1 left-1 w-6 h-6 bg-white rounded-full shadow-md transform transition-transform duration-300 ${isMathMode ? 'translate-x-6' : 'translate-x-0'}`} />
                                        </button>
                                     </div>
+                                    <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                                      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Sheet Metadata</p>
+                                      <div className="space-y-1">
+                                        <div className="flex justify-between text-xs"><span className="text-slate-400">Level:</span><span className="font-bold text-slate-700">{formData.educationalLevel}</span></div>
+                                        <div className="flex justify-between text-xs"><span className="text-slate-400">Difficulty:</span><span className="font-bold text-slate-700">{formData.difficulty}</span></div>
+                                        <div className="flex justify-between text-xs"><span className="text-slate-400">Items:</span><span className="font-bold text-slate-700">{totalQuestions}</span></div>
+                                      </div>
+                                    </div>
                                  </div>
                                  
                                  <button onClick={handleGenerate} className="w-full py-8 bg-yellow-400 text-yellow-900 rounded-[2.5rem] font-black text-2xl shadow-2xl hover:bg-yellow-500 active:scale-95 transition-all flex items-center justify-center gap-4">
                                    <Wand2 className="w-8 h-8" />
                                    Synthesize Sheet
                                  </button>
-                                 <div className="p-6 bg-blue-50 rounded-2xl border border-blue-100">
-                                   <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest mb-2">Build Summary</p>
-                                   <div className="flex justify-between items-center text-blue-900 font-black">
-                                     <span>Total Items:</span>
-                                     <span className="text-xl">{totalQuestions}</span>
-                                   </div>
-                                 </div>
                               </div>
                            </div>
                         </div>
