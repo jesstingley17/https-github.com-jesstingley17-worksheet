@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { AppMode, Worksheet, ThemeType, QuestionType } from './types';
+import { AppMode, Worksheet, ThemeType, QuestionType, VariationLevel } from './types';
 import { generateWorksheet, generateTopicScopeSuggestion, analyzeSourceMaterial, refineSourceText } from './services/geminiService';
 import { WorksheetView } from './components/WorksheetView';
 import { QuizView } from './components/QuizView';
@@ -61,7 +61,15 @@ import {
   Clock,
   ChevronRight,
   PlusCircle,
-  RefreshCw
+  RefreshCw,
+  Eye,
+  EyeOff,
+  Dices,
+  RotateCw,
+  FlaskConical,
+  Target,
+  Globe,
+  BarChart
 } from 'lucide-react';
 
 const WorksheetSkeleton: React.FC<{ theme: ThemeType }> = ({ theme }) => {
@@ -106,14 +114,13 @@ const App: React.FC = () => {
   const [mode, setMode] = useState<AppMode>(AppMode.GENERATOR);
   const [theme, setTheme] = useState<ThemeType>(ThemeType.CLASSIC);
   const [showDoodles, setShowDoodles] = useState(false);
-  const [currentStep, setCurrentStep] = useState(1);
+  const [currentStep, setCurrentStep] = useState<number>(1);
   const [worksheet, setWorksheet] = useState<Worksheet | null>(null);
   const [savedWorksheets, setSavedWorksheets] = useState<Worksheet[]>([]);
   const [loading, setLoading] = useState(false);
   const [isGeneratingScope, setIsGeneratingScope] = useState(false);
   const [isRefining, setIsRefining] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [lastSavedTime, setLastSavedTime] = useState<number | null>(null);
   const [showTeacherKey, setShowTeacherKey] = useState(false);
   const [isMathMode, setIsMathMode] = useState(false);
   
@@ -129,10 +136,11 @@ const App: React.FC = () => {
     includeDiagram: boolean;
     diagramLabelType: 'LABELED' | 'BLANK';
     questionCounts: Record<QuestionType, number>;
+    variationLevels: Record<QuestionType, VariationLevel>;
   }>({
     topic: '',
     customTitle: '',
-    educationalLevel: 'High School',
+    educationalLevel: 'Grade 10 (Sophomore)',
     difficulty: 'Medium',
     language: 'English',
     rawText: '',
@@ -148,6 +156,15 @@ const App: React.FC = () => {
       [QuestionType.CHARACTER_DRILL]: 0,
       [QuestionType.SYMBOL_DRILL]: 0,
       [QuestionType.SENTENCE_DRILL]: 0,
+    },
+    variationLevels: {
+      [QuestionType.MCQ]: VariationLevel.STRICT,
+      [QuestionType.TF]: VariationLevel.STRICT,
+      [QuestionType.SHORT_ANSWER]: VariationLevel.REPHRASE,
+      [QuestionType.VOCABULARY]: VariationLevel.REPHRASE,
+      [QuestionType.CHARACTER_DRILL]: VariationLevel.STRICT,
+      [QuestionType.SYMBOL_DRILL]: VariationLevel.STRICT,
+      [QuestionType.SENTENCE_DRILL]: VariationLevel.STRICT,
     }
   });
 
@@ -157,44 +174,19 @@ const App: React.FC = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  const presets: Record<string, Record<QuestionType, number>> = useMemo(() => ({
-    "Classic Exam": {
-      [QuestionType.MCQ]: 4,
-      [QuestionType.TF]: 2,
-      [QuestionType.SHORT_ANSWER]: 2,
-      [QuestionType.VOCABULARY]: 0,
-      [QuestionType.CHARACTER_DRILL]: 0,
-      [QuestionType.SYMBOL_DRILL]: 0,
-      [QuestionType.SENTENCE_DRILL]: 0,
-    },
-    "Skill Practice": {
-      [QuestionType.MCQ]: 0,
-      [QuestionType.TF]: 0,
-      [QuestionType.SHORT_ANSWER]: 0,
-      [QuestionType.VOCABULARY]: 3,
-      [QuestionType.CHARACTER_DRILL]: 2,
-      [QuestionType.SYMBOL_DRILL]: 2,
-      [QuestionType.SENTENCE_DRILL]: 1,
-    },
-    "Mixed Hero": {
-      [QuestionType.MCQ]: 2,
-      [QuestionType.TF]: 2,
-      [QuestionType.SHORT_ANSWER]: 1,
-      [QuestionType.VOCABULARY]: 1,
-      [QuestionType.CHARACTER_DRILL]: 1,
-      [QuestionType.SYMBOL_DRILL]: 0,
-      [QuestionType.SENTENCE_DRILL]: 1,
-    }
-  }), []);
-
   const educationalLevels = [
-    "Preschool (3-5 years)",
-    "Elementary School",
-    "Middle School",
-    "High School",
+    "Preschool (Ages 3-5)",
+    "Kindergarten",
+    "Grade 1", "Grade 2", "Grade 3", "Grade 4", "Grade 5",
+    "Grade 6", "Grade 7", "Grade 8",
+    "Grade 9 (Freshman)", "Grade 10 (Sophomore)", "Grade 11 (Junior)", "Grade 12 (Senior)",
     "University / College",
-    "Professional / Adult"
+    "Graduate / PhD Level",
+    "Professional / Corporate Track"
   ];
+
+  const difficulties = ["Easy", "Medium", "Hard", "Expert"];
+  const languages = ["English", "Spanish", "French", "German", "Chinese", "Japanese"];
 
   const isPreschool = formData.educationalLevel.includes("Preschool");
 
@@ -335,6 +327,7 @@ const App: React.FC = () => {
         difficulty: formData.difficulty,
         language: formData.language,
         questionCounts: formData.questionCounts,
+        variationLevels: formData.variationLevels,
         pageTarget: formData.pageCount,
         includeTracing: formData.includeTracing,
         includeDiagram: formData.includeDiagram,
@@ -381,6 +374,10 @@ const App: React.FC = () => {
     setFormData(prev => ({ ...prev, questionCounts: { ...prev.questionCounts, [type]: Math.max(0, Math.min(10, prev.questionCounts[type] + delta)) } }));
   };
 
+  const updateVariation = (type: QuestionType, level: VariationLevel) => {
+    setFormData(prev => ({ ...prev, variationLevels: { ...prev.variationLevels, [type]: level } }));
+  };
+
   const nextStep = () => currentStep < 4 && setCurrentStep(prev => prev + 1);
   const prevStep = () => setCurrentStep(prev => Math.max(prev - 1, 1));
   const skipStep = () => {
@@ -389,6 +386,22 @@ const App: React.FC = () => {
        if (!formData.topic.trim()) setFormData(prev => ({ ...prev, topic: "General Assessment", customTitle: prev.customTitle || "New Worksheet" }));
        nextStep();
      }
+  };
+
+  const getVariationIcon = (level: VariationLevel) => {
+    switch(level) {
+      case VariationLevel.STRICT: return <Target className="w-3.5 h-3.5" />;
+      case VariationLevel.REPHRASE: return <RotateCw className="w-3.5 h-3.5" />;
+      case VariationLevel.CREATIVE: return <FlaskConical className="w-3.5 h-3.5" />;
+    }
+  };
+
+  const getVariationLabel = (level: VariationLevel) => {
+    switch(level) {
+      case VariationLevel.STRICT: return 'Slightly Alter';
+      case VariationLevel.REPHRASE: return 'Significantly Rephrase';
+      case VariationLevel.CREATIVE: return 'Generate Similar';
+    }
   };
 
   return (
@@ -412,14 +425,20 @@ const App: React.FC = () => {
             <>
               {mode === AppMode.GENERATOR && (
                 <div className="max-w-5xl mx-auto pt-8">
-                  <div className="text-center mb-10"><h2 className="font-handwriting-header text-5xl sm:text-7xl text-slate-800 mb-4">Teach in <MarkerHighlight>Minutes</MarkerHighlight></h2><div className="flex items-center justify-center gap-3 mt-10">{[1, 2, 3, 4].map((s) => (<div key={s} className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-sm border-2 ${currentStep === s ? 'bg-yellow-400 border-yellow-400 text-white shadow-xl scale-110' : currentStep > s ? 'bg-green-500 border-green-500 text-white' : 'bg-white border-slate-200 text-slate-300'}`}>{currentStep > s ? <CheckCircle2 className="w-6 h-6" /> : s}</div>))}</div></div>
+                  <div className="text-center mb-10"><h2 className="font-handwriting-header text-5xl sm:text-7xl text-slate-800 mb-4">Teach in <MarkerHighlight>Minutes</MarkerHighlight></h2><div className="flex items-center justify-center gap-3 mt-10">
+                    {[1, 2, 3, 4].map((s: number) => (
+                      <div key={s} className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-sm border-2 ${currentStep === s ? 'bg-yellow-400 border-yellow-400 text-white shadow-xl scale-110' : currentStep > s ? 'bg-green-500 border-green-500 text-white' : 'bg-white border-slate-200 text-slate-300'}`}>
+                        {currentStep > s ? <CheckCircle2 className="w-6 h-6" /> : s}
+                      </div>
+                    ))}
+                  </div></div>
                   <div className="bg-white rounded-[3rem] shadow-xl border border-slate-100 overflow-hidden mb-12 flex flex-col min-h-[600px]">
                     <div className="flex-1 p-8 sm:p-12">
                       {currentStep === 1 && (
                         <div className="animate-in slide-in-from-right duration-500 h-full flex flex-col justify-center items-center gap-8">
                           <h3 className="text-3xl font-black text-slate-800">1. Scan Source Material</h3>
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 w-full max-w-2xl"><div onClick={() => fileInputRef.current?.click()} className="border-4 border-dashed border-slate-100 rounded-[2.5rem] p-12 text-center hover:border-yellow-200 transition-all cursor-pointer group bg-slate-50/50 flex flex-col items-center"><input type="file" ref={fileInputRef} className="hidden" accept="image/*,application/pdf" onChange={handleFileChange} /><Upload className="w-12 h-12 text-yellow-500 mb-4 group-hover:scale-110 transition-transform" /><p className="font-bold text-slate-700">Browse Files</p></div><div onClick={() => setIsCameraActive(true)} className="border-4 border-dashed border-slate-100 rounded-[2.5rem] p-12 text-center hover:border-yellow-200 transition-all cursor-pointer group bg-slate-50/50 flex flex-col items-center"><Camera className="w-12 h-12 text-blue-500 mb-4 group-hover:scale-110 transition-transform" /><p className="font-bold text-slate-700">Live Camera</p></div></div>
-                          <div className="mt-8 flex flex-col items-center gap-4"><div className="flex items-center gap-3 text-slate-300"><div className="h-[1px] w-20 bg-current"></div><span className="font-black text-xs uppercase tracking-widest">Or Start Fresh</span><div className="h-[1px] w-20 bg-current"></div></div><button onClick={startWithBlankSheet} className="flex items-center gap-3 px-8 py-4 bg-slate-900 text-white rounded-2xl font-black hover:bg-slate-800 transition-all shadow-xl active:scale-95 group"><PlusCircle className="w-6 h-6 text-yellow-400 group-hover:rotate-90 transition-transform" /> Start with Blank Sheet</button><p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight max-w-[280px] text-center italic">Best for manual building from the ground up using our designer tools.</p></div>
+                          <div className="mt-8 flex flex-col items-center gap-4"><div className="flex items-center gap-3 text-slate-300"><div className="h-[1px] w-20 bg-current"></div><span className="font-black text-xs uppercase tracking-widest">Or Start Fresh</span><div className="h-[1px] w-20 bg-current"></div></div><button onClick={startWithBlankSheet} className="flex items-center gap-3 px-8 py-4 bg-slate-900 text-white rounded-2xl font-black hover:bg-slate-800 transition-all shadow-xl active:scale-95 group"><PlusCircle className="w-6 h-6 text-yellow-400 group-hover:rotate-90 transition-transform" /> Start with Blank Sheet</button></div>
                           {isCameraActive && (<div className="fixed inset-0 bg-black/90 z-[200] flex flex-col items-center justify-center p-4"><video ref={videoRef} autoPlay playsInline className="max-w-full max-h-[70vh] rounded-3xl border-4 border-white/20" /><div className="mt-8 flex gap-4"><button onClick={capturePhoto} className="w-20 h-20 bg-white rounded-full flex items-center justify-center shadow-2xl active:scale-90"><div className="w-16 h-16 border-4 border-slate-900 rounded-full"></div></button><button onClick={() => setIsCameraActive(false)} className="w-20 h-20 bg-red-500 text-white rounded-full flex items-center justify-center shadow-2xl"><X className="w-10 h-10" /></button></div><canvas ref={canvasRef} className="hidden" /></div>)}
                           {fileData && (<div className="p-4 bg-green-50 text-green-700 rounded-2xl flex items-center gap-2 font-bold animate-in zoom-in"><CheckCircle2 className="w-5 h-5" /> {fileData.name} loaded.</div>)}
                         </div>
@@ -472,24 +491,100 @@ const App: React.FC = () => {
                       )}
                       {currentStep === 4 && (
                         <div className="animate-in slide-in-from-right duration-500 h-full flex flex-col gap-8">
-                           <h3 className="text-3xl font-black text-slate-800">4. Specification</h3>
-                           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                              <div className="p-8 bg-slate-50 rounded-[2rem] border border-slate-100">
-                                 <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Question Distribution</h4>
+                           <div className="flex items-center justify-between">
+                             <h3 className="text-3xl font-black text-slate-800">4. Specification</h3>
+                             <div className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-widest px-4 py-2 bg-slate-50 rounded-full">
+                               <Dices className="w-4 h-4 text-blue-500" /> AI Variation Control Enabled
+                             </div>
+                           </div>
+                           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                              <div className="p-8 bg-slate-50 rounded-[2.5rem] border border-slate-100 h-fit">
+                                 <div className="flex items-center justify-between mb-6">
+                                   <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">Question Strategy</h4>
+                                   <Info className="w-4 h-4 text-slate-300 cursor-help" title="Variation levels control how much the AI rephrases your source material." />
+                                 </div>
                                  <div className="space-y-4">
-                                    {Object.entries(formData.questionCounts).map(([type, count]) => (
-                                      <div key={type} className="flex items-center justify-between p-3 bg-white rounded-xl shadow-sm"><span className="font-bold text-slate-600 capitalize">{type.toLowerCase().replace('_', ' ')}</span><div className="flex items-center gap-4"><button onClick={() => updateCount(type as QuestionType, -1)} className="p-1 text-slate-300 hover:text-slate-600"><Minus className="w-5 h-5" /></button><span className="font-black w-4 text-center">{count}</span><button onClick={() => updateCount(type as QuestionType, 1)} className="p-1 text-slate-300 hover:text-slate-600"><Plus className="w-5 h-5" /></button></div></div>
-                                    ))}
+                                    {Object.entries(formData.questionCounts).map(([typeStr, count]) => {
+                                      const type = typeStr as QuestionType;
+                                      return (
+                                        <div key={type} className={`flex flex-col gap-3 p-4 bg-white rounded-2xl shadow-sm transition-all border-2 ${count > 0 ? 'border-blue-100' : 'border-transparent opacity-60'}`}>
+                                          <div className="flex items-center justify-between">
+                                            <span className="font-black text-slate-700 capitalize text-sm">{type.toLowerCase().replace('_', ' ')}</span>
+                                            <div className="flex items-center gap-3">
+                                              <button onClick={() => updateCount(type, -1)} className="p-1 text-slate-300 hover:text-red-500 transition-colors"><Minus className="w-5 h-5" /></button>
+                                              <span className="font-black w-4 text-center text-lg">{count}</span>
+                                              <button onClick={() => updateCount(type, 1)} className="p-1 text-slate-300 hover:text-blue-500 transition-colors"><Plus className="w-5 h-5" /></button>
+                                            </div>
+                                          </div>
+                                          
+                                          {count > 0 && (
+                                            <div className="flex gap-2">
+                                              {[VariationLevel.STRICT, VariationLevel.REPHRASE, VariationLevel.CREATIVE].map((lvl) => (
+                                                <button
+                                                  key={lvl}
+                                                  onClick={() => updateVariation(type, lvl)}
+                                                  className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-[10px] font-black uppercase tracking-tight transition-all border-2 ${
+                                                    formData.variationLevels[type] === lvl 
+                                                      ? 'bg-blue-600 border-blue-600 text-white shadow-md scale-105' 
+                                                      : 'bg-slate-50 border-slate-100 text-slate-400 hover:border-slate-200'
+                                                  }`}
+                                                  title={getVariationLabel(lvl)}
+                                                >
+                                                  {getVariationIcon(lvl)}
+                                                  <span className="hidden sm:inline">{getVariationLabel(lvl).split(' ')[1] || 'Similar'}</span>
+                                                </button>
+                                              ))}
+                                            </div>
+                                          )}
+                                        </div>
+                                      );
+                                    })}
                                  </div>
                               </div>
                               <div className="space-y-6">
-                                 <div className="p-6 bg-white rounded-[2rem] border-2 border-slate-100 shadow-sm flex flex-col gap-4">
+                                 <div className="p-8 bg-white rounded-[2.5rem] border-2 border-slate-100 shadow-sm space-y-6">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                                      <div className="space-y-2">
+                                        <label className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1"><Award className="w-3 h-3" /> Academic Level</label>
+                                        <select 
+                                          className="w-full p-4 rounded-xl bg-slate-50 border-2 border-transparent focus:border-blue-400 focus:bg-white outline-none font-bold text-slate-700 text-sm transition-all"
+                                          value={formData.educationalLevel}
+                                          onChange={(e) => setFormData({...formData, educationalLevel: e.target.value})}
+                                        >
+                                          {educationalLevels.map(lvl => <option key={lvl} value={lvl}>{lvl}</option>)}
+                                        </select>
+                                      </div>
+                                      <div className="space-y-2">
+                                        <label className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1"><BarChart className="w-3 h-3" /> Difficulty</label>
+                                        <select 
+                                          className="w-full p-4 rounded-xl bg-slate-50 border-2 border-transparent focus:border-blue-400 focus:bg-white outline-none font-bold text-slate-700 text-sm transition-all"
+                                          value={formData.difficulty}
+                                          onChange={(e) => setFormData({...formData, difficulty: e.target.value})}
+                                        >
+                                          {difficulties.map(d => <option key={d} value={d}>{d}</option>)}
+                                        </select>
+                                      </div>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                      <label className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1"><Globe className="w-3 h-3" /> Content Language</label>
+                                      <select 
+                                        className="w-full p-4 rounded-xl bg-slate-50 border-2 border-transparent focus:border-blue-400 focus:bg-white outline-none font-bold text-slate-700 text-sm transition-all"
+                                        value={formData.language}
+                                        onChange={(e) => setFormData({...formData, language: e.target.value})}
+                                      >
+                                        {languages.map(l => <option key={l} value={l}>{l}</option>)}
+                                      </select>
+                                    </div>
+
+                                    <div className="h-[2px] bg-slate-50"></div>
+
                                     <div className="flex items-center justify-between">
                                        <div className="flex items-center gap-3">
                                           <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-md transition-colors ${isMathMode ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-400'}`}><Sigma className="w-6 h-6" /></div>
                                           <div>
                                              <span className="block font-black uppercase tracking-widest text-[10px] text-slate-400">Scientific Mode</span>
-                                             <span className="block font-bold text-slate-800 text-sm">Math Mode</span>
+                                             <span className="block font-bold text-slate-800 text-sm">Math Spacing</span>
                                           </div>
                                        </div>
                                        <button 
@@ -499,9 +594,19 @@ const App: React.FC = () => {
                                           <div className={`absolute top-1 left-1 w-6 h-6 bg-white rounded-full shadow-md transform transition-transform duration-300 ${isMathMode ? 'translate-x-6' : 'translate-x-0'}`} />
                                        </button>
                                     </div>
-                                    <p className="text-[10px] font-medium text-slate-400 leading-relaxed px-1">Optimizes spacing and font rendering for mathematical formulas, exponents, and complex notation to prevent overlap.</p>
                                  </div>
-                                 <button onClick={handleGenerate} className="w-full py-6 bg-yellow-400 text-yellow-900 rounded-[2rem] font-black text-2xl shadow-xl hover:bg-yellow-500 active:scale-95 transition-all">Build Sheet</button>
+                                 
+                                 <button onClick={handleGenerate} className="w-full py-8 bg-yellow-400 text-yellow-900 rounded-[2.5rem] font-black text-2xl shadow-2xl hover:bg-yellow-500 active:scale-95 transition-all flex items-center justify-center gap-4">
+                                   <Wand2 className="w-8 h-8" />
+                                   Synthesize Sheet
+                                 </button>
+                                 <div className="p-6 bg-blue-50 rounded-2xl border border-blue-100">
+                                   <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest mb-2">Build Summary</p>
+                                   <div className="flex justify-between items-center text-blue-900 font-black">
+                                     <span>Total Items:</span>
+                                     <span className="text-xl">{totalQuestions}</span>
+                                   </div>
+                                 </div>
                               </div>
                            </div>
                         </div>
@@ -517,10 +622,50 @@ const App: React.FC = () => {
               {mode === AppMode.WORKSHEET && worksheet && (
                 <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 pt-8 pb-32">
                   <div className="max-w-4xl mx-auto mb-8 bg-white p-4 rounded-3xl shadow-sm border border-slate-100 no-print sticky top-4 z-50 flex flex-col md:flex-row justify-between items-center gap-4">
-                    <div className="flex items-center gap-4"><button onClick={() => setMode(AppMode.GENERATOR)} className="p-3 bg-slate-100 rounded-xl text-slate-500 hover:text-slate-800"><ArrowLeft className="w-5 h-5" /></button><div className="font-bold text-slate-600">Document Editor</div></div>
-                    <div className="flex gap-2"><button onClick={handleExportPDF} className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg active:scale-95"><Printer className="w-5 h-5" /> PDF</button><button onClick={handleExportJSON} className="flex items-center gap-2 px-6 py-3 bg-slate-900 text-white rounded-xl font-bold active:scale-95"><FileJson className="w-5 h-5" /> Data</button><button onClick={handleSaveCurrent} className="flex items-center gap-2 px-6 py-3 bg-yellow-400 text-yellow-900 rounded-xl font-bold active:scale-95"><Save className="w-5 h-5" /> Save</button></div>
+                    <div className="flex items-center gap-4">
+                      <button onClick={() => setMode(AppMode.GENERATOR)} className="p-3 bg-slate-100 rounded-xl text-slate-500 hover:text-slate-800"><ArrowLeft className="w-5 h-5" /></button>
+                      <div className="font-bold text-slate-600">Document Editor</div>
+                    </div>
+                    <div className="flex gap-2 items-center">
+                      <button 
+                        onClick={() => setShowTeacherKey(!showTeacherKey)} 
+                        className={`flex items-center gap-2 px-4 py-3 rounded-xl font-bold transition-all active:scale-95 border-2 ${showTeacherKey ? 'bg-red-50 border-red-200 text-red-600 shadow-inner' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}`}
+                        title={showTeacherKey ? "Hide Answer Key" : "Show Answer Key"}
+                      >
+                        {showTeacherKey ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                        <span className="hidden sm:inline">Teacher Key</span>
+                      </button>
+                      <button 
+                        onClick={() => setMode(AppMode.QUIZ)} 
+                        className="flex items-center gap-2 px-4 py-3 bg-purple-600 text-white rounded-xl font-bold shadow-lg active:scale-95 hover:bg-purple-700"
+                      >
+                        <PlayCircle className="w-5 h-5" />
+                        <span className="hidden sm:inline">Start Quiz</span>
+                      </button>
+                      <button onClick={handleExportPDF} className="flex items-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg active:scale-95 hover:bg-blue-700">
+                        <Printer className="w-5 h-5" />
+                        <span className="hidden sm:inline">PDF</span>
+                      </button>
+                      <button onClick={handleExportJSON} className="flex items-center gap-2 px-4 py-3 bg-slate-900 text-white rounded-xl font-bold active:scale-95 hover:bg-slate-800">
+                        <FileJson className="w-5 h-5" />
+                        <span className="hidden sm:inline">Data</span>
+                      </button>
+                      <button onClick={handleSaveCurrent} className="flex items-center gap-2 px-4 py-3 bg-yellow-400 text-yellow-900 rounded-xl font-bold active:scale-95 hover:bg-yellow-500">
+                        <Save className="w-5 h-5" />
+                        <span className="hidden sm:inline">Save</span>
+                      </button>
+                    </div>
                   </div>
                   <WorksheetView worksheet={worksheet} theme={theme} showKey={showTeacherKey} isMathMode={isMathMode} />
+                </div>
+              )}
+              {mode === AppMode.QUIZ && worksheet && (
+                <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 pt-8 pb-32">
+                  <QuizView 
+                    worksheet={worksheet} 
+                    theme={theme} 
+                    onExit={() => setMode(AppMode.WORKSHEET)} 
+                  />
                 </div>
               )}
             </>

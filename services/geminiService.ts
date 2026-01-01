@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import { Worksheet, QuestionType, ThemeType } from "../types";
+import { Worksheet, QuestionType, ThemeType, VariationLevel } from "../types";
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
@@ -10,6 +10,7 @@ export interface GenerationOptions {
   difficulty: string;
   language: string;
   questionCounts: Record<string, number>;
+  variationLevels?: Record<string, VariationLevel>;
   rawText?: string;
   fileData?: { data: string; mimeType: string };
   pageTarget?: number;
@@ -164,6 +165,7 @@ export async function generateWorksheet(options: GenerationOptions): Promise<Wor
     difficulty, 
     language, 
     questionCounts, 
+    variationLevels = {},
     rawText, 
     fileData, 
     pageTarget = 1, 
@@ -299,52 +301,70 @@ export async function generateWorksheet(options: GenerationOptions): Promise<Wor
     });
   }
 
+  const variationDescription = (level: VariationLevel) => {
+    switch(level) {
+      case VariationLevel.STRICT: return "STRICTLY ADHERE to the source material. Only slightly alter phrasing to fit question format. Do not add outside information.";
+      case VariationLevel.REPHRASE: return "SIGNIFICANTLY REPHRASE source content. Change sentence structures and vocabulary while maintaining the core facts and logic.";
+      case VariationLevel.CREATIVE: return "GENERATE SIMILAR questions using the source material as a thematic base but drawing from your internal knowledge to expand the scope and context.";
+      default: return "";
+    }
+  };
+
   const countInstruction = Object.entries(questionCounts)
     .filter(([_, count]) => count > 0)
-    .map(([type, count]) => `- ${count} items of type ${type}`)
+    .map(([type, count]) => {
+      const vLevel = variationLevels[type] || VariationLevel.REPHRASE;
+      return `- Generate exactly ${count} items of type ${type}. VARIATION STRATEGY: ${variationDescription(vLevel)}`;
+    })
     .join('\n');
 
   const mathInstruction = isMathMode ? `
-    MODE: SCIENTIFIC/MATHEMATICAL RIGOR.
-    - Questions must use clear mathematical notation.
-    - For exponents, use ^ notation (e.g., x^2).
-    - For fractions, use clear forward slashes or standard text representation.
-    - Ensure questions are technically precise.
-    - For multiple choice options, provide clear numerical or symbolic choices.
+    MODE: SCIENTIFIC AND MATHEMATICAL RIGOR (LaTeX-adjacent text notation).
+    - Questions must use clear, consistent mathematical notation.
+    - For exponents, strictly use ^ notation (e.g., x^2).
+    - For fractions, use clear parenthetical grouping if complex, e.g., (x+1)/(x-1).
+    - Ensure every question is technically accurate and follows standard academic conventions.
+    - Multiple choice options should provide a range of plausible but incorrect "distractors."
   ` : '';
 
   const infographicInstruction = isInfographic ? `
-    MODE: INFOGRAPHIC GENERATION.
-    Instead of a traditional worksheet with questions, generate a "Visual Fact Sheet".
-    The "questions" array should contain key thematic sections:
-    - Each "question" should be a high-level educational section header.
-    - The "correctAnswer" should be the primary content/fact for that section (1-3 detailed sentences).
-    - The "explanation" should be a "Deep Dive" or "Fun Fact" related to the content.
-    - Provide exactly 6 sections to fill an infographic layout.
+    MODE: EDUCATIONAL INFOGRAPHIC DESIGN.
+    - Transform traditional assessment items into "Knowledge Blocks."
+    - Each item should function as a standalone fact or summary section.
+    - The "correctAnswer" should provide a robust, authoritative summary of that section's fact.
+    - The "explanation" must serve as a "Deep Dive" or "Contextual Background."
+    - Total blocks required: exactly 6 to ensure visual balance.
   ` : '';
 
   const promptText = `
-    You are an elite academic curriculum designer. 
-    Generate a high-quality, professional worksheet in ${language} for ${gradeLevel} students.
+    ROLE: You are an Elite Academic Curriculum Designer and Senior Examiner.
+    TASK: Generate a high-quality, pedagogically-sound worksheet in ${language} for ${gradeLevel} students.
     
     TITLE: ${customTitle || 'Untitled Academic Document'}
     TOPIC: ${topic}
     DIFFICULTY: ${difficulty}
-    ${rawText ? `SOURCE MATERIAL: ${rawText}` : ''}
+    ${rawText ? `PRIMARY SOURCE MATERIAL: ${rawText}` : ''}
     
-    REQUIREMENTS:
+    PEDAGOGICAL FRAMEWORK:
+    - Apply Bloom's Taxonomy: Ensure a mix of knowledge retrieval, application, and analysis.
+    - ${difficulty === 'Hard' ? 'Focus heavily on higher-order thinking skills and inferencing.' : 'Focus on clarity and core conceptual mastery.'}
+    - Avoid ambiguous or misleading phrasing. 
+    - Questions must be directly relevant to the topic: "${topic}".
+    
+    CONSTRAINTS & MODES:
     ${infographicInstruction}
     ${mathInstruction}
     ${countInstruction}
     
-    For each question, include:
-    - Clear, grammatically correct question text.
-    - Multiple choice options if requested (provide 4 options).
-    - The correct answer.
-    - A brief academic explanation/rationale for the answer.
-    - Whether it's a "challenge" question (set true for ~20% of items).
+    OUTPUT SPECIFICATION:
+    For each question, provide:
+    - Grammatically perfect question text.
+    - 4 distinct MCQ options if applicable (no "All of the above" or "None of the above").
+    - A verified correct answer.
+    - A brief Academic Explanation that provides context and reinforces the learning objective.
+    - Identify "Challenge" questions (~20% of total) that require more than 1 step of logic.
     
-    Return the result in JSON format only.
+    Format the response as a strict JSON object according to the requested schema.
   `;
   
   parts.push({ text: promptText });

@@ -182,10 +182,6 @@ export const WorksheetView: React.FC<WorksheetViewProps> = ({ worksheet: initial
           <FilePlus className="w-5 h-5 text-yellow-400" /> Add New Page
         </button>
       </div>
-      
-      <p className="mt-4 text-[9px] font-bold text-slate-400 uppercase leading-tight italic">
-        * Click existing text on the sheet to edit it directly.
-      </p>
     </div>
   );
 
@@ -195,6 +191,12 @@ export const WorksheetView: React.FC<WorksheetViewProps> = ({ worksheet: initial
     <div className="absolute top-2 left-1/2 -translate-x-1/2 opacity-20 pointer-events-none no-print flex items-center gap-2">
       <Scissors className="w-3 h-3" />
       <span className="text-[8px] font-black uppercase tracking-widest">Cut along this line</span>
+    </div>
+  );
+
+  const ScoreBox = () => (
+    <div className="flex-shrink-0 w-16 h-10 border-2 border-slate-200 rounded-lg flex items-center justify-center font-bold text-xs text-slate-300 select-none">
+      [ / 10 ]
     </div>
   );
 
@@ -230,7 +232,7 @@ export const WorksheetView: React.FC<WorksheetViewProps> = ({ worksheet: initial
                 <div className="w-80 border-b-2 border-slate-900 h-8"></div>
               </div>
               <div className="flex flex-col">
-                <span className="text-[10px] font-black uppercase text-slate-400">Date:</span>
+                <span className="text-[10px] font-black uppercase text-slate-400">Grade Level: <span className="text-slate-900">{worksheet.educationalLevel}</span></span>
                 <div className="w-48 border-b-2 border-slate-900 h-8"></div>
               </div>
             </div>
@@ -258,7 +260,7 @@ export const WorksheetView: React.FC<WorksheetViewProps> = ({ worksheet: initial
                 <div key={q.id} className="relative group">
                   {q.type === QuestionType.PAGE_BREAK ? (
                     <div className="h-20 flex items-center justify-center border-y-2 border-dashed border-slate-200 my-8 opacity-40">
-                      <span className="font-black uppercase text-[10px] tracking-widest text-slate-400">Page Break - Start Next Page</span>
+                      <span className="font-black uppercase text-[10px] tracking-widest text-slate-400">Next Page</span>
                     </div>
                   ) : (
                     <div className="flex flex-col gap-2">
@@ -278,7 +280,7 @@ export const WorksheetView: React.FC<WorksheetViewProps> = ({ worksheet: initial
           <div className="mt-4 flex justify-between items-center opacity-30">
             <HelenCharacter />
             <div className="text-right">
-               <span className="text-[8px] font-bold uppercase tracking-widest text-slate-400">Teach in Minutes Preschool Series</span>
+               <span className="text-[8px] font-bold uppercase tracking-widest text-slate-400">Teach in Minutes • {worksheet.educationalLevel} Series</span>
             </div>
           </div>
         </div>
@@ -322,12 +324,20 @@ export const WorksheetView: React.FC<WorksheetViewProps> = ({ worksheet: initial
 
         {headerPadding && (
           <div className={`${headerPadding} relative z-10 border-b-2 ${isClassicProfessional ? 'border-slate-900' : 'border-slate-100'}`}>
-            {renderEditableText('title', worksheet.title || "Academic Assessment Document", `${isCreative ? 'font-handwriting-header' : 'font-sans text-left outline-none'} ${titleSizeClass} text-slate-900 leading-tight`, (v) => setWorksheet(p => ({...p, title: v})))}
+            <div className="flex justify-between items-start">
+              <div className="flex-1">
+                {renderEditableText('title', worksheet.title || "Academic Assessment", `${isCreative ? 'font-handwriting-header' : 'font-sans text-left outline-none'} ${titleSizeClass} text-slate-900 leading-tight`, (v) => setWorksheet(p => ({...p, title: v})))}
+              </div>
+              <div className="ml-8 w-24 h-24 border-4 border-slate-900 rounded-2xl flex flex-col items-center justify-center bg-slate-50 shadow-inner">
+                <span className="text-[8px] font-black uppercase text-slate-400">Total Score</span>
+                <span className="text-2xl font-black text-slate-900 mt-1">/ 100</span>
+              </div>
+            </div>
             
             <div className={`flex justify-between items-center ${isClassicProfessional ? 'mt-1' : 'mt-6'} px-0`}>
               <div className="flex items-center gap-4">
                 <div className={`px-1.5 py-0.5 text-[7.5px] font-bold tracking-widest uppercase border border-slate-800`}>
-                  Assessment Ref: TM-V2.5-BUILDER-{worksheet.id?.slice(-6) || 'MANUAL'}
+                  Assessment Ref: TM-V2.5-{worksheet.id?.slice(-6) || 'BUILDER'}
                 </div>
                 <HelenCharacter />
               </div>
@@ -336,7 +346,7 @@ export const WorksheetView: React.FC<WorksheetViewProps> = ({ worksheet: initial
                   Module: <span className="text-slate-900">{worksheet.topic}</span>
                 </div>
                 <div className="text-[7.5px] font-bold uppercase tracking-tight text-slate-500">
-                  Classification: <span className="text-slate-900">{worksheet.educationalLevel}</span>
+                  Grade Level: <span className="text-slate-900">{worksheet.educationalLevel}</span>
                 </div>
               </div>
             </div>
@@ -362,7 +372,7 @@ export const WorksheetView: React.FC<WorksheetViewProps> = ({ worksheet: initial
               return (
                 <div key={q.id} className="relative group no-print">
                   <div className="h-20 flex items-center justify-center border-y-2 border-dashed border-slate-200 my-16 opacity-40">
-                    <span className="font-black uppercase text-[10px] tracking-[0.5em] text-slate-400">Page Break</span>
+                    <span className="font-black uppercase text-[10px] tracking-[0.5em] text-slate-400">Start Next Page</span>
                   </div>
                 </div>
               );
@@ -377,37 +387,54 @@ export const WorksheetView: React.FC<WorksheetViewProps> = ({ worksheet: initial
                 )}
 
                 <div className={`flex items-start gap-4 ${isMathMode ? 'mb-4' : ''}`}>
-                  <span className={`font-bold text-slate-900 ${isClassicProfessional ? (isMathMode ? 'text-4xl' : 'text-[11px]') : 'text-lg'}`}>{idx + 1}.</span>
-                  {renderEditableText(q.id, q.question, questionSizeClass, (v) => updateQuestionText(q.id, v))}
+                  <div className="flex-1 flex items-start gap-4">
+                    <span className={`font-bold text-slate-900 ${isClassicProfessional ? (isMathMode ? 'text-4xl' : 'text-[11px]') : 'text-lg'}`}>{idx + 1}.</span>
+                    {renderEditableText(q.id, q.question, questionSizeClass, (v) => updateQuestionText(q.id, v))}
+                  </div>
+                  <ScoreBox />
                 </div>
 
                 <div className="ml-12">
                   {q.type === QuestionType.MCQ && (
                     <div className={`grid ${isMathMode ? 'gap-12 mt-8' : 'gap-1.5'} ${getMcqGridCols(q.options)}`}>
-                      {q.options?.map((opt, i) => (
-                        <div key={i} className={`flex items-center gap-6 p-2 group ${isMathMode ? 'border-b border-slate-100 py-6' : ''}`}>
-                          <div className={`border border-slate-900 rounded-none ${isMathMode ? 'w-10 h-10 flex-shrink-0' : 'w-2.5 h-2.5'}`}></div>
-                          {isBuilderMode ? (
-                            <input 
-                              className={`${optionSizeClass} bg-slate-50 border-b border-slate-200 outline-none w-full`}
-                              value={opt}
-                              onChange={(e) => updateOptionText(q.id, i, e.target.value)}
-                            />
-                          ) : <span className={optionSizeClass}>{opt}</span>}
-                        </div>
-                      ))}
+                      {q.options?.map((opt, i) => {
+                        const isCorrectOption = opt === q.correctAnswer;
+                        return (
+                          <div key={i} className={`flex items-center gap-6 p-2 group transition-all ${isMathMode ? 'border-b border-slate-100 py-6' : ''} ${showKey && isCorrectOption ? 'bg-red-50/50 rounded-lg ring-1 ring-red-100 scale-[1.02]' : ''}`}>
+                            <div className={`border border-slate-900 rounded-none flex items-center justify-center transition-colors ${isMathMode ? 'w-10 h-10 flex-shrink-0' : 'w-2.5 h-2.5'} ${showKey && isCorrectOption ? 'border-red-600 bg-red-600' : ''}`}>
+                              {showKey && isCorrectOption && <Check className="text-white w-full h-full p-0.5" />}
+                            </div>
+                            {isBuilderMode ? (
+                              <input 
+                                className={`${optionSizeClass} bg-slate-50 border-b border-slate-200 outline-none w-full ${showKey && isCorrectOption ? 'text-red-700 font-black' : ''}`}
+                                value={opt}
+                                onChange={(e) => updateOptionText(q.id, i, e.target.value)}
+                              />
+                            ) : (
+                              <span className={`${optionSizeClass} ${showKey && isCorrectOption ? 'text-red-700 font-black' : ''}`}>
+                                {opt}
+                                {showKey && isCorrectOption && <span className="ml-2 text-[8px] uppercase tracking-tighter text-red-400 font-bold opacity-60">(Key)</span>}
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
 
                   {q.type === QuestionType.TF && (
                     <div className={`flex gap-16 ${isMathMode ? 'mt-10' : 'mt-4'}`}>
-                       <div className="flex items-center gap-4">
-                          <div className={`border-2 border-slate-900 rounded-lg ${isMathMode ? 'w-10 h-10' : 'w-5 h-5'}`}></div>
-                          <span className={`${optionSizeClass} font-black uppercase tracking-widest`}>True</span>
+                       <div className={`flex items-center gap-4 transition-all ${showKey && q.correctAnswer === 'True' ? 'bg-red-50 p-2 rounded-xl ring-1 ring-red-100' : ''}`}>
+                          <div className={`border-2 border-slate-900 rounded-lg flex items-center justify-center ${isMathMode ? 'w-10 h-10' : 'w-5 h-5'} ${showKey && q.correctAnswer === 'True' ? 'border-red-600 bg-red-600' : ''}`}>
+                            {showKey && q.correctAnswer === 'True' && <Check className="text-white w-full h-full p-1" />}
+                          </div>
+                          <span className={`${optionSizeClass} font-black uppercase tracking-widest ${showKey && q.correctAnswer === 'True' ? 'text-red-700' : ''}`}>True</span>
                        </div>
-                       <div className="flex items-center gap-4">
-                          <div className={`border-2 border-slate-900 rounded-lg ${isMathMode ? 'w-10 h-10' : 'w-5 h-5'}`}></div>
-                          <span className={`${optionSizeClass} font-black uppercase tracking-widest`}>False</span>
+                       <div className={`flex items-center gap-4 transition-all ${showKey && q.correctAnswer === 'False' ? 'bg-red-50 p-2 rounded-xl ring-1 ring-red-100' : ''}`}>
+                          <div className={`border-2 border-slate-900 rounded-lg flex items-center justify-center ${isMathMode ? 'w-10 h-10' : 'w-5 h-5'} ${showKey && q.correctAnswer === 'False' ? 'border-red-600 bg-red-600' : ''}`}>
+                            {showKey && q.correctAnswer === 'False' && <Check className="text-white w-full h-full p-1" />}
+                          </div>
+                          <span className={`${optionSizeClass} font-black uppercase tracking-widest ${showKey && q.correctAnswer === 'False' ? 'text-red-700' : ''}`}>False</span>
                        </div>
                     </div>
                   )}
@@ -416,7 +443,13 @@ export const WorksheetView: React.FC<WorksheetViewProps> = ({ worksheet: initial
                     <div className={`${isMathMode ? 'mt-10 min-h-[300px]' : 'mt-4 min-h-[100px]'} border-l-2 border-slate-100 relative`}>
                        <div className={`${isMathMode ? 'space-y-24' : 'space-y-6'}`}>
                           {[...Array(isMathMode ? 4 : 4)].map((_, i) => (
-                            <div key={i} className={`border-b border-slate-200 ${isMathMode ? 'h-24' : 'h-6'}`}></div>
+                            <div key={i} className={`border-b border-slate-200 ${isMathMode ? 'h-24' : 'h-6'} relative`}>
+                              {showKey && i === 0 && (
+                                <span className="absolute left-4 bottom-1 font-handwriting-body text-red-600 text-2xl font-black drop-shadow-sm animate-in fade-in slide-in-from-left-2">
+                                  {q.correctAnswer}
+                                </span>
+                              )}
+                            </div>
                           ))}
                        </div>
                     </div>
@@ -426,7 +459,15 @@ export const WorksheetView: React.FC<WorksheetViewProps> = ({ worksheet: initial
                     <div className="mt-4">
                        <DraggableLineRow text={q.correctAnswer} isSmall={isMathMode} showTraceButton={true} />
                        <div className={`mt-6 ${isMathMode ? 'space-y-24' : 'space-y-4'}`}>
-                          {[...Array(3)].map((_, i) => <div key={i} className={`${isMathMode ? 'h-24' : 'h-6'} border-b border-dashed border-slate-300 w-full opacity-30`}></div>)}
+                          {[...Array(2)].map((_, i) => (
+                            <div key={i} className={`${isMathMode ? 'h-24' : 'h-6'} border-b border-dashed border-slate-300 w-full opacity-30 relative`}>
+                              {showKey && i === 0 && (
+                                <span className="absolute left-8 bottom-1 font-handwriting-body text-red-600 text-2xl font-black opacity-80 animate-in fade-in">
+                                  {q.correctAnswer}
+                                </span>
+                              )}
+                            </div>
+                          ))}
                        </div>
                     </div>
                   )}
@@ -439,13 +480,13 @@ export const WorksheetView: React.FC<WorksheetViewProps> = ({ worksheet: initial
         <div className="mt-auto pt-8 relative z-10 opacity-40">
           <div className="flex justify-between items-end border-t border-slate-800 pt-1.5 font-sans">
             <div className="flex gap-10 font-bold text-[7px] text-slate-600 uppercase tracking-tighter">
-              <span>Critical Synthesis</span>
-              <span>Empirical Rigor</span>
-              <span>Academic Excellence</span>
+              <span>Classified Academic Material</span>
+              <span>Classification: {worksheet.educationalLevel}</span>
+              <span>Topic Reference: {worksheet.topic}</span>
             </div>
             <div className="text-right space-y-0">
-              <div className="text-[5.5px] font-black uppercase tracking-widest text-slate-900">Exam Processor: TM-BUILDER-V1.0</div>
-              <div className="text-[6.5px] font-bold text-slate-500 uppercase">FULLY CUSTOMIZABLE ASSESSMENT ASSET</div>
+              <div className="text-[5.5px] font-black uppercase tracking-widest text-slate-900">Document Engine: TM-SYNTHESIS-V2.5</div>
+              <div className="text-[6.5px] font-bold text-slate-500 uppercase">A4 PHYSICAL FIDELITY PRINT-READY</div>
             </div>
           </div>
         </div>

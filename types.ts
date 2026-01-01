@@ -10,6 +10,12 @@ export enum QuestionType {
   PAGE_BREAK = 'PAGE_BREAK'
 }
 
+export enum VariationLevel {
+  STRICT = 'STRICT', // Slightly Alter
+  REPHRASE = 'REPHRASE', // Significantly Rephrase
+  CREATIVE = 'CREATIVE' // Generate Similar
+}
+
 export interface Question {
   id: string;
   type: QuestionType;
